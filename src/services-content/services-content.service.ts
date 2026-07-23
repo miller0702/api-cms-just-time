@@ -9,19 +9,52 @@ function toGalleryJson(
   return (gallery ?? []) as unknown as Prisma.InputJsonValue;
 }
 
+const PUBLIC_LIST_TTL_MS = 30_000;
+
+const publicListSelect = {
+  id: true,
+  line: true,
+  slug: true,
+  title: true,
+  summary: true,
+  tags: true,
+  sortOrder: true,
+  status: true,
+  mediaId: true,
+  publishedAt: true,
+  media: { select: { id: true, url: true, alt: true } },
+} as const;
+
 @Injectable()
 export class ServicesContentService {
+  private readonly publicListCache = new Map<
+    string,
+    { at: number; items: unknown }
+  >();
+
   constructor(private readonly prisma: PrismaService) {}
 
-  listPublic(line?: ServiceLine) {
-    return this.prisma.service.findMany({
+  private invalidatePublicList() {
+    this.publicListCache.clear();
+  }
+
+  async listPublic(line?: ServiceLine) {
+    const cacheKey = line ?? 'all';
+    const hit = this.publicListCache.get(cacheKey);
+    if (hit && Date.now() - hit.at < PUBLIC_LIST_TTL_MS) {
+      return hit.items;
+    }
+
+    const items = await this.prisma.service.findMany({
       where: {
         status: PublishStatus.published,
         ...(line ? { line } : {}),
       },
-      include: { media: true },
+      select: publicListSelect,
       orderBy: { sortOrder: 'asc' },
     });
+    this.publicListCache.set(cacheKey, { at: Date.now(), items });
+    return items;
   }
 
   listAdmin() {
@@ -47,7 +80,7 @@ export class ServicesContentService {
 
   async setStatus(id: string, status: PublishStatus) {
     const current = await this.byId(id);
-    return this.prisma.service.update({
+    const updated = await this.prisma.service.update({
       where: { id },
       data: {
         status,
@@ -58,6 +91,8 @@ export class ServicesContentService {
       },
       select: { id: true, status: true, publishedAt: true },
     });
+    this.invalidatePublicList();
+    return updated;
   }
 
   async bySlug(slug: string) {
@@ -80,8 +115,8 @@ export class ServicesContentService {
     return item;
   }
 
-  create(dto: UpsertServiceDto) {
-    return this.prisma.service.create({
+  async create(dto: UpsertServiceDto) {
+    const created = await this.prisma.service.create({
       data: {
         line: dto.line,
         slug: dto.slug,
@@ -98,11 +133,13 @@ export class ServicesContentService {
       },
       include: { media: true },
     });
+    this.invalidatePublicList();
+    return created;
   }
 
   async update(id: string, dto: UpsertServiceDto) {
     const current = await this.byId(id);
-    return this.prisma.service.update({
+    const updated = await this.prisma.service.update({
       where: { id },
       data: {
         line: dto.line,
@@ -122,11 +159,14 @@ export class ServicesContentService {
       },
       include: { media: true },
     });
+    this.invalidatePublicList();
+    return updated;
   }
 
   async remove(id: string) {
     await this.byId(id);
     await this.prisma.service.delete({ where: { id } });
+    this.invalidatePublicList();
     return { ok: true };
   }
 }
