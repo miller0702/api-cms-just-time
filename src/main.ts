@@ -10,13 +10,25 @@ loadEnv()
 // Runtime: Transaction pooler (6543) para no agotar el cupo Session (15).
 applyDatabaseUrlFromParts()
 
+/** `*` + credentials no es válido en el browser; `true` refleja el Origin de la request. */
+function resolveCorsOrigin(): boolean | string | string[] {
+  const raw = process.env.CORS_ORIGIN?.trim()
+  if (!raw || raw === '*') return true
+  const list = raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  return list.length <= 1 ? list[0] || true : list
+}
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule)
   app.setGlobalPrefix('v1')
   app.enableCors({
-    origin: process.env.CORS_ORIGIN?.split(',') ?? true,
+    origin: resolveCorsOrigin(),
     credentials: true,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   })
   app.useGlobalPipes(
     new ValidationPipe({
