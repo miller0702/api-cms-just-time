@@ -88,5 +88,12 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
-  }
+  },
+  "pnpm": {
+    "overrides": {
+      "baseline-browser-mapping": "2.11.0",
+      "flatted": "3.4.2"
+    }
+  },
+  "packageManager": "pnpm@10.14.0"
 }
