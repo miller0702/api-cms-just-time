@@ -13,6 +13,7 @@ import {
   PermissionsGuard,
   RequirePermissions,
 } from '../auth/permissions.guard';
+import { SetPublishStatusDto } from '../common/dto/set-publish-status.dto';
 import { UpsertPageDto } from './dto/upsert-page.dto';
 import { PagesService } from './pages.service';
 
@@ -44,6 +45,13 @@ export class PagesController {
   @Post('admin/pages')
   create(@Body() dto: UpsertPageDto) {
     return this.pages.create(dto);
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('pages.write')
+  @Patch('admin/pages/:id/status')
+  setStatus(@Param('id') id: string, @Body() dto: SetPublishStatusDto) {
+    return this.pages.setStatus(id, dto.status);
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)

@@ -13,6 +13,7 @@ import {
   PermissionsGuard,
   RequirePermissions,
 } from '../auth/permissions.guard';
+import { SetPublishStatusDto } from '../common/dto/set-publish-status.dto';
 import { UpsertNewsDto } from './dto/upsert-news.dto';
 import { NewsService } from './news.service';
 
@@ -49,6 +50,13 @@ export class NewsController {
   @Post('admin/news')
   create(@Body() dto: UpsertNewsDto) {
     return this.news.create(dto);
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('news.write')
+  @Patch('admin/news/:id/status')
+  setStatus(@Param('id') id: string, @Body() dto: SetPublishStatusDto) {
+    return this.news.setStatus(id, dto.status);
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)

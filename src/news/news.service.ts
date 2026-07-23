@@ -17,8 +17,38 @@ export class NewsService {
 
   listAdmin() {
     return this.prisma.news.findMany({
-      include: { coverMedia: true },
       orderBy: { updatedAt: 'desc' },
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        excerpt: true,
+        status: true,
+        coverMediaId: true,
+        publishedAt: true,
+        viewCount: true,
+        likeCount: true,
+        shareCount: true,
+        commentCount: true,
+        createdAt: true,
+        updatedAt: true,
+        coverMedia: { select: { id: true, url: true, alt: true } },
+      },
+    });
+  }
+
+  async setStatus(id: string, status: PublishStatus) {
+    const current = await this.byId(id);
+    return this.prisma.news.update({
+      where: { id },
+      data: {
+        status,
+        publishedAt:
+          status === PublishStatus.published
+            ? (current.publishedAt ?? new Date())
+            : current.publishedAt,
+      },
+      select: { id: true, status: true, publishedAt: true },
     });
   }
 

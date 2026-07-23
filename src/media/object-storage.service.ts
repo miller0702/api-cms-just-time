@@ -20,15 +20,37 @@ export class ObjectStorageService {
 
   private getStorage() {
     if (!this.storage) {
+      const projectId =
+        process.env.GCS_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
       const keyRaw =
         process.env.GCS_KEY_FILE?.trim() ||
         process.env.FIREBASE_SERVICE_ACCOUNT_PATH?.trim();
-      const keyFile = keyRaw ? resolve(process.cwd(), keyRaw) : undefined;
-      const projectId =
-        process.env.GCS_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
-      this.storage = keyFile
-        ? new Storage({ keyFilename: keyFile, projectId })
-        : new Storage({ projectId });
+      const clientEmail = process.env.FIREBASE_CLIENT_EMAIL?.trim();
+      let privateKey = process.env.FIREBASE_PRIVATE_KEY?.trim();
+
+      if (privateKey?.startsWith('"') && privateKey.endsWith('"')) {
+        privateKey = privateKey.slice(1, -1);
+      }
+      if (privateKey?.includes('\\n')) {
+        privateKey = privateKey.replace(/\\n/g, '\n');
+      }
+
+      if (clientEmail && privateKey) {
+        this.storage = new Storage({
+          projectId,
+          credentials: {
+            client_email: clientEmail,
+            private_key: privateKey,
+          },
+        });
+      } else if (keyRaw) {
+        this.storage = new Storage({
+          keyFilename: resolve(process.cwd(), keyRaw),
+          projectId,
+        });
+      } else {
+        this.storage = new Storage({ projectId });
+      }
     }
     return this.storage;
   }

@@ -12,8 +12,26 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
+type PublishBucket = { total: number; published: number }
+
+function fromStatusGroups(
+  rows: Array<{ status: PublishStatus; _count: { _all: number } }>,
+): PublishBucket {
+  let total = 0
+  let published = 0
+  for (const row of rows) {
+    total += row._count._all
+    if (row.status === PublishStatus.published) published += row._count._all
+  }
+  return { total, published }
+}
+
 @Injectable()
 export class EngagementService {
+  /** Cache corta: el dashboard no necesita datos en tiempo real al segundo. */
+  private statsCache: { at: number; data: unknown } | null = null
+  private static readonly STATS_TTL_MS = 20_000
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
@@ -224,43 +242,47 @@ export class EngagementService {
   }
 
   async adminStats() {
+    if (
+      this.statsCache &&
+      Date.now() - this.statsCache.at < EngagementService.STATS_TTL_MS
+    ) {
+      return this.statsCache.data
+    }
+
+    const since = new Date(Date.now() - 1000 * 60 * 60 * 24 * 30)
+    const engagementSelect = {
+      id: true,
+      title: true,
+      slug: true,
+      viewCount: true,
+      likeCount: true,
+      shareCount: true,
+      commentCount: true,
+    } as const
+
     const [
-      newsTotal,
-      newsPublished,
-      pillsTotal,
-      pillsPublished,
-      servicesTotal,
-      servicesPublished,
-      projectsTotal,
-      projectsPublished,
-      pagesTotal,
-      pagesPublished,
-      leadsTotal,
-      leadsNew,
-      leadsInProgress,
-      leadsDone,
+      newsGroups,
+      pillGroups,
+      serviceGroups,
+      projectGroups,
+      pageGroups,
+      leadGroups,
       commentsPending,
       mediaTotal,
       topNews,
       topPills,
       recentLeads,
+      leadDays,
     ] = await Promise.all([
-      this.prisma.news.count(),
-      this.prisma.news.count({ where: { status: PublishStatus.published } }),
-      this.prisma.pill.count(),
-      this.prisma.pill.count({ where: { status: PublishStatus.published } }),
-      this.prisma.service.count(),
-      this.prisma.service.count({ where: { status: PublishStatus.published } }),
-      this.prisma.saleProject.count(),
-      this.prisma.saleProject.count({
-        where: { status: PublishStatus.published },
+      this.prisma.news.groupBy({ by: ['status'], _count: { _all: true } }),
+      this.prisma.pill.groupBy({ by: ['status'], _count: { _all: true } }),
+      this.prisma.service.groupBy({ by: ['status'], _count: { _all: true } }),
+      this.prisma.saleProject.groupBy({
+        by: ['status'],
+        _count: { _all: true },
       }),
-      this.prisma.page.count(),
-      this.prisma.page.count({ where: { status: PublishStatus.published } }),
-      this.prisma.lead.count(),
-      this.prisma.lead.count({ where: { status: 'new' } }),
-      this.prisma.lead.count({ where: { status: 'in_progress' } }),
-      this.prisma.lead.count({ where: { status: 'done' } }),
+      this.prisma.page.groupBy({ by: ['status'], _count: { _all: true } }),
+      this.prisma.lead.groupBy({ by: ['status'], _count: { _all: true } }),
       this.prisma.contentComment.count({
         where: { status: CommentStatus.pending },
       }),
@@ -269,29 +291,13 @@ export class EngagementService {
         where: { status: PublishStatus.published },
         orderBy: { viewCount: 'desc' },
         take: 5,
-        select: {
-          id: true,
-          title: true,
-          slug: true,
-          viewCount: true,
-          likeCount: true,
-          shareCount: true,
-          commentCount: true,
-        },
+        select: engagementSelect,
       }),
       this.prisma.pill.findMany({
         where: { status: PublishStatus.published },
         orderBy: { viewCount: 'desc' },
         take: 5,
-        select: {
-          id: true,
-          title: true,
-          slug: true,
-          viewCount: true,
-          likeCount: true,
-          shareCount: true,
-          commentCount: true,
-        },
+        select: engagementSelect,
       }),
       this.prisma.lead.findMany({
         orderBy: { createdAt: 'desc' },
@@ -304,31 +310,48 @@ export class EngagementService {
           createdAt: true,
         },
       }),
-    ]);
+      this.prisma.$queryRaw<Array<{ day: Date; count: number }>>`
+        SELECT (created_at AT TIME ZONE 'UTC')::date AS day,
+               COUNT(*)::int AS count
+        FROM cms.leads
+        WHERE created_at >= ${since}
+        GROUP BY 1
+        ORDER BY 1
+      `,
+    ])
 
-    const since = new Date(Date.now() - 1000 * 60 * 60 * 24 * 30);
-    const leadsLast30 = await this.prisma.lead.findMany({
-      where: { createdAt: { gte: since } },
-      select: { createdAt: true },
-    });
-    const byDay: Record<string, number> = {};
+    const byDay: Record<string, number> = {}
     for (let i = 29; i >= 0; i--) {
-      const d = new Date(Date.now() - i * 86400000);
-      const key = d.toISOString().slice(0, 10);
-      byDay[key] = 0;
+      const d = new Date(Date.now() - i * 86400000)
+      byDay[d.toISOString().slice(0, 10)] = 0
     }
-    for (const lead of leadsLast30) {
-      const key = lead.createdAt.toISOString().slice(0, 10);
-      if (key in byDay) byDay[key] += 1;
+    for (const row of leadDays) {
+      const key =
+        row.day instanceof Date
+          ? row.day.toISOString().slice(0, 10)
+          : String(row.day).slice(0, 10)
+      if (key in byDay) byDay[key] = Number(row.count) || 0
     }
 
-    return {
+    let leadsTotal = 0
+    let leadsNew = 0
+    let leadsInProgress = 0
+    let leadsDone = 0
+    for (const row of leadGroups) {
+      const n = row._count._all
+      leadsTotal += n
+      if (row.status === 'new') leadsNew = n
+      else if (row.status === 'in_progress') leadsInProgress = n
+      else if (row.status === 'done') leadsDone = n
+    }
+
+    const data = {
       content: {
-        news: { total: newsTotal, published: newsPublished },
-        pills: { total: pillsTotal, published: pillsPublished },
-        services: { total: servicesTotal, published: servicesPublished },
-        projects: { total: projectsTotal, published: projectsPublished },
-        pages: { total: pagesTotal, published: pagesPublished },
+        news: fromStatusGroups(newsGroups),
+        pills: fromStatusGroups(pillGroups),
+        services: fromStatusGroups(serviceGroups),
+        projects: fromStatusGroups(projectGroups),
+        pages: fromStatusGroups(pageGroups),
       },
       leads: {
         total: leadsTotal,
@@ -349,6 +372,9 @@ export class EngagementService {
         .sort((a, b) => b.viewCount - a.viewCount)
         .slice(0, 6),
       recentLeads,
-    };
+    }
+
+    this.statsCache = { at: Date.now(), data }
+    return data
   }
 }

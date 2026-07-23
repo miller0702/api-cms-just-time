@@ -27,6 +27,27 @@ export class NotificationsService {
   }
 
   private loadServiceAccount(): ServiceAccount | null {
+    // Preferir variables de entorno (Cloud Run / Secret Manager).
+    const projectId = process.env.FIREBASE_PROJECT_ID?.trim();
+    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL?.trim();
+    let privateKey = process.env.FIREBASE_PRIVATE_KEY?.trim();
+    if (
+      projectId &&
+      clientEmail &&
+      privateKey &&
+      projectId !== 'your-project-id' &&
+      clientEmail !== 'your-service-account@example.com'
+    ) {
+      if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
+        privateKey = privateKey.slice(1, -1);
+      }
+      if (privateKey.includes('\\n')) {
+        privateKey = privateKey.replace(/\\n/g, '\n');
+      }
+      return { projectId, clientEmail, privateKey };
+    }
+
+    // Fallback local: JSON del service account
     const pathEnv = process.env.FIREBASE_SERVICE_ACCOUNT_PATH?.trim();
     if (pathEnv) {
       try {
@@ -50,22 +71,7 @@ export class NotificationsService {
       }
     }
 
-    const projectId = process.env.FIREBASE_PROJECT_ID?.trim();
-    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL?.trim();
-    let privateKey = process.env.FIREBASE_PRIVATE_KEY?.trim();
-    if (
-      !projectId ||
-      !clientEmail ||
-      !privateKey ||
-      projectId === 'your-project-id' ||
-      clientEmail === 'your-service-account@example.com'
-    ) {
-      return null;
-    }
-    if (privateKey.includes('\\n')) {
-      privateKey = privateKey.replace(/\\n/g, '\n');
-    }
-    return { projectId, clientEmail, privateKey };
+    return null;
   }
 
   private init() {

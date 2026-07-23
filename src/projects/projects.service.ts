@@ -22,8 +22,42 @@ export class ProjectsService {
 
   listAdmin() {
     return this.prisma.saleProject.findMany({
-      include: projectInclude,
       orderBy: { updatedAt: 'desc' },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        locationCity: true,
+        locationDept: true,
+        summary: true,
+        badges: true,
+        tags: true,
+        priceFromCop: true,
+        erpProjectId: true,
+        coverMediaId: true,
+        logoMediaId: true,
+        status: true,
+        publishedAt: true,
+        createdAt: true,
+        updatedAt: true,
+        coverMedia: { select: { id: true, url: true, alt: true } },
+        logoMedia: { select: { id: true, url: true, alt: true } },
+      },
+    });
+  }
+
+  async setStatus(id: string, status: PublishStatus) {
+    const current = await this.byId(id);
+    return this.prisma.saleProject.update({
+      where: { id },
+      data: {
+        status,
+        publishedAt:
+          status === PublishStatus.published
+            ? (current.publishedAt ?? new Date())
+            : current.publishedAt,
+      },
+      select: { id: true, status: true, publishedAt: true },
     });
   }
 

@@ -13,6 +13,7 @@ import {
   PermissionsGuard,
   RequirePermissions,
 } from '../auth/permissions.guard';
+import { SetPublishStatusDto } from '../common/dto/set-publish-status.dto';
 import { UpsertPillDto } from './dto/upsert-pill.dto';
 import { PillsService } from './pills.service';
 
@@ -49,6 +50,13 @@ export class PillsController {
   @Post('admin/pills')
   create(@Body() dto: UpsertPillDto) {
     return this.pills.create(dto);
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('pills.write')
+  @Patch('admin/pills/:id/status')
+  setStatus(@Param('id') id: string, @Body() dto: SetPublishStatusDto) {
+    return this.pills.setStatus(id, dto.status);
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)

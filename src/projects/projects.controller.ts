@@ -13,6 +13,7 @@ import {
   PermissionsGuard,
   RequirePermissions,
 } from '../auth/permissions.guard';
+import { SetPublishStatusDto } from '../common/dto/set-publish-status.dto';
 import { UpsertProjectDto } from './dto/upsert-project.dto';
 import { ProjectsService } from './projects.service';
 
@@ -49,6 +50,13 @@ export class ProjectsController {
   @Post('admin/sale-projects')
   create(@Body() dto: UpsertProjectDto) {
     return this.projects.create(dto);
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('projects.write')
+  @Patch('admin/sale-projects/:id/status')
+  setStatus(@Param('id') id: string, @Body() dto: SetPublishStatusDto) {
+    return this.projects.setStatus(id, dto.status);
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
