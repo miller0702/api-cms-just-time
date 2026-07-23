@@ -29,6 +29,12 @@ async function bootstrap() {
   if (!process.env.GCS_BUCKET?.trim()) {
     app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' })
   }
-  await app.listen(process.env.PORT ?? 3002)
+  const port = Number(process.env.PORT ?? 3002)
+  // Cloud Run exige 0.0.0.0; sin host puede no recibir el health check.
+  await app.listen(port, '0.0.0.0')
+  console.log(`API listening on 0.0.0.0:${port}`)
 }
-bootstrap()
+bootstrap().catch((err) => {
+  console.error('Fatal bootstrap error:', err)
+  process.exit(1)
+})

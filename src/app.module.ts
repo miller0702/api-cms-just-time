@@ -46,7 +46,12 @@ export class AppModule implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    await this.seed();
+    try {
+      await this.seed();
+    } catch (err) {
+      // No tumbar el proceso en Cloud Run por un seed fallido (DB/timeout).
+      console.error('[seed] Falló el seed al arrancar:', err);
+    }
   }
 
   private async seed() {
