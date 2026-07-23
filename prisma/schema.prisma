@@ -1,0 +1,294 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["cms"]
+}
+
+enum PublishStatus {
+  draft
+  published
+
+  @@schema("cms")
+}
+
+enum ServiceLine {
+  urbanismo
+  hidrocarburos
+
+  @@schema("cms")
+}
+
+enum ContentType {
+  news
+  pill
+
+  @@schema("cms")
+}
+
+enum EngagementEventType {
+  view
+  like
+  share
+
+  @@schema("cms")
+}
+
+enum CommentStatus {
+  pending
+  approved
+  rejected
+
+  @@schema("cms")
+}
+
+model AdminRoleDef {
+  id          String      @id @default(uuid())
+  slug        String      @unique
+  name        String
+  description String?
+  isSystem    Boolean     @default(false) @map("is_system")
+  permissions String[]
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  users       AdminUser[]
+
+  @@map("admin_roles")
+  @@schema("cms")
+}
+
+model AdminUser {
+  id           String       @id @default(uuid())
+  email        String       @unique
+  passwordHash String       @map("password_hash")
+  name         String
+  roleId       String       @map("role_id")
+  roleDef      AdminRoleDef @relation(fields: [roleId], references: [id])
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  @@index([roleId])
+  @@map("admin_users")
+  @@schema("cms")
+}
+
+model MediaFolder {
+  id        String        @id @default(uuid())
+  name      String
+  parentId  String?       @map("parent_id")
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+  parent    MediaFolder?  @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children  MediaFolder[] @relation("FolderTree")
+  assets    MediaAsset[]
+
+  @@index([parentId])
+  @@map("media_folders")
+  @@schema("cms")
+}
+
+model MediaAsset {
+  id        String       @id @default(uuid())
+  filename  String
+  mimeType  String       @map("mime_type")
+  sizeBytes Int          @map("size_bytes")
+  url       String
+  alt       String?
+  folderId  String?      @map("folder_id")
+  createdAt DateTime     @default(now()) @map("created_at")
+  folder    MediaFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+
+  newsCovers    News[]        @relation("NewsCover")
+  pillCovers    Pill[]        @relation("PillCover")
+  serviceMedia  Service[]     @relation("ServiceMedia")
+  projectCovers SaleProject[] @relation("ProjectCover")
+  projectLogos  SaleProject[] @relation("ProjectLogo")
+
+  @@index([folderId])
+  @@map("media_assets")
+  @@schema("cms")
+}
+
+model Page {
+  id             String        @id @default(uuid())
+  slug           String        @unique
+  title          String
+  seoDescription String?       @map("seo_description")
+  status         PublishStatus @default(draft)
+  publishedAt    DateTime?     @map("published_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  blocks         PageBlock[]
+
+  @@map("pages")
+  @@schema("cms")
+}
+
+model PageBlock {
+  id        String   @id @default(uuid())
+  pageId    String   @map("page_id")
+  type      String
+  sortOrder Int      @default(0) @map("sort_order")
+  payload   Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  page      Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@map("page_blocks")
+  @@schema("cms")
+}
+
+model Service {
+  id          String        @id @default(uuid())
+  line        ServiceLine
+  slug        String        @unique
+  title       String
+  summary     String
+  body        String        @db.Text
+  tags        String[]      @default([])
+  sortOrder   Int           @default(0) @map("sort_order")
+  status      PublishStatus @default(draft)
+  mediaId     String?       @map("media_id")
+  /** Galería: [{ id, mediaId, url, alt?, caption?, size, sortOrder }] */
+  gallery     Json          @default("[]")
+  publishedAt DateTime?     @map("published_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  media       MediaAsset?   @relation("ServiceMedia", fields: [mediaId], references: [id])
+
+  @@map("services")
+  @@schema("cms")
+}
+
+model SaleProject {
+  id           String        @id @default(uuid())
+  slug         String        @unique
+  name         String
+  locationCity String        @map("location_city")
+  locationDept String        @map("location_dept")
+  summary      String
+  body         String        @db.Text
+  badges       String[]      @default([])
+  tags         String[]      @default([])
+  priceFromCop Decimal       @map("price_from_cop") @db.Decimal(14, 2)
+  erpProjectId String?       @map("erp_project_id")
+  coverMediaId String?       @map("cover_media_id")
+  logoMediaId  String?       @map("logo_media_id")
+  status       PublishStatus @default(draft)
+  publishedAt  DateTime?     @map("published_at")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  coverMedia   MediaAsset?   @relation("ProjectCover", fields: [coverMediaId], references: [id])
+  logoMedia    MediaAsset?   @relation("ProjectLogo", fields: [logoMediaId], references: [id])
+
+  @@map("sale_projects")
+  @@schema("cms")
+}
+
+model News {
+  id           String        @id @default(uuid())
+  slug         String        @unique
+  title        String
+  excerpt      String
+  body         String        @db.Text
+  coverMediaId String?       @map("cover_media_id")
+  status       PublishStatus @default(draft)
+  publishedAt  DateTime?     @map("published_at")
+  viewCount    Int           @default(0) @map("view_count")
+  likeCount    Int           @default(0) @map("like_count")
+  shareCount   Int           @default(0) @map("share_count")
+  commentCount Int           @default(0) @map("comment_count")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  coverMedia   MediaAsset?   @relation("NewsCover", fields: [coverMediaId], references: [id])
+
+  @@map("news")
+  @@schema("cms")
+}
+
+model Pill {
+  id           String        @id @default(uuid())
+  slug         String        @unique
+  title        String
+  summary      String
+  body         String        @db.Text
+  category     String?
+  coverMediaId String?       @map("cover_media_id")
+  status       PublishStatus @default(draft)
+  publishedAt  DateTime?     @map("published_at")
+  viewCount    Int           @default(0) @map("view_count")
+  likeCount    Int           @default(0) @map("like_count")
+  shareCount   Int           @default(0) @map("share_count")
+  commentCount Int           @default(0) @map("comment_count")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  coverMedia   MediaAsset?   @relation("PillCover", fields: [coverMediaId], references: [id])
+
+  @@map("pills")
+  @@schema("cms")
+}
+
+model ContentEngagement {
+  id          String              @id @default(uuid())
+  contentType ContentType         @map("content_type")
+  contentId   String              @map("content_id")
+  eventType   EngagementEventType @map("event_type")
+  visitorKey  String?             @map("visitor_key")
+  channel     String?
+  metadata    Json?
+  createdAt   DateTime            @default(now()) @map("created_at")
+
+  @@index([contentType, contentId, eventType])
+  @@index([visitorKey, contentType, contentId, eventType])
+  @@map("content_engagements")
+  @@schema("cms")
+}
+
+model ContentComment {
+  id          String        @id @default(uuid())
+  contentType ContentType   @map("content_type")
+  contentId   String        @map("content_id")
+  authorName  String        @map("author_name")
+  authorEmail String?       @map("author_email")
+  body        String        @db.Text
+  status      CommentStatus @default(pending)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  @@index([contentType, contentId, status])
+  @@index([status])
+  @@map("content_comments")
+  @@schema("cms")
+}
+
+model Lead {
+  id            String   @id @default(uuid())
+  name          String
+  email         String
+  phone         String?
+  company       String?
+  message       String   @db.Text
+  source        String   @default("website")
+  businessLine  String?  @map("business_line")
+  serviceSlug   String?  @map("service_slug")
+  projectSlug   String?  @map("project_slug")
+  lotCode       String?  @map("lot_code")
+  status        String   @default("new")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("leads")
+  @@schema("cms")
+}
+
+model SiteSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("site_settings")
+  @@schema("cms")
+}
