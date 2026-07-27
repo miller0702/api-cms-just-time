@@ -17,6 +17,8 @@ import { EngagementModule } from './engagement/engagement.module';
 import { UsersModule } from './users/users.module';
 import { RolesModule } from './roles/roles.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { AiModule } from './ai/ai.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 import { RolesService } from './roles/roles.service';
 import { systemRoleSeeds } from './auth/permissions';
 
@@ -37,6 +39,8 @@ import { systemRoleSeeds } from './auth/permissions';
     RolesModule,
     UsersModule,
     NotificationsModule,
+    AiModule,
+    AnalyticsModule,
   ],
 })
 export class AppModule implements OnModuleInit {

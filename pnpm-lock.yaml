@@ -57,6 +57,9 @@ importers:
       multer:
         specifier: ^2.2.0
         version: 2.2.0
+      openai:
+        specifier: ^6.49.0
+        version: 6.49.0
       passport:
         specifier: ^0.7.0
         version: 0.7.0
@@ -69,6 +72,9 @@ importers:
       rxjs:
         specifier: ^7.8.1
         version: 7.8.2
+      ua-parser-js:
+        specifier: ^2.0.10
+        version: 2.0.10
     devDependencies:
       '@eslint/eslintrc':
         specifier: ^3.2.0
@@ -106,6 +112,9 @@ importers:
       '@types/supertest':
         specifier: ^7.0.0
         version: 7.2.1
+      '@types/ua-parser-js':
+        specifier: ^0.7.39
+        version: 0.7.39
       eslint:
         specifier: ^9.18.0
         version: 9.39.5(jiti@2.7.0)
@@ -1094,6 +1103,9 @@ packages:
   '@types/tough-cookie@4.0.5':
     resolution: {integrity: sha512-/Ad8+nIOV7Rl++6f1BdKxFSMgmoqEoYbHRpPcx3JEfv8VRsQe9Z4mCXeJBzxs7mbHY/XOZZuXlRNfhpVPbs6ZA==}
 
+  '@types/ua-parser-js@0.7.39':
+    resolution: {integrity: sha512-P/oDfpofrdtF5xw433SPALpdSchtJmY7nsJItf8h3KXqOslkbySh8zq4dSWXH2oTjRvJ5PczVEoCZPow6GicLg==}
+
   '@types/validator@13.15.10':
     resolution: {integrity: sha512-T8L6i7wCuyoK8A/ZeLYt1+q0ty3Zb9+qbSSvrIVitzT3YjZqkTZ40IbRsPanlB4h1QB3JVL1SYCdR6ngtFYcuA==}
 
@@ -1791,6 +1803,9 @@ packages:
   destr@2.0.5:
     resolution: {integrity: sha512-ugFTXCtDZunbzasqBxrK93Ik/DRYsO6S/fedkWEMKqt04xZ4csmnmwGDBAb07QWNaGMAmnTIemsYZCksjATwsA==}
 
+  detect-europe-js@0.1.2:
+    resolution: {integrity: sha512-lgdERlL3u0aUdHocoouzT10d9I89VVhk0qNRmll7mXdGfJT1/wqZ2ZLA4oJAjeACPY5fT1wsbq2AT+GkuInsow==}
+
   detect-newline@3.1.0:
     resolution: {integrity: sha512-TLz+x/vEXm/Y7P7wn1EJFNLxYpUD4TgMosxY6fAVJUnJMbupHBOncxyWUG9OpTaH9EBD7uFI5LfEgmMOc54DsA==}
     engines: {node: '>=8'}
@@ -2389,6 +2404,9 @@ packages:
   is-promise@4.0.0:
     resolution: {integrity: sha512-hvpoI6korhJMnej285dSg6nu1+e6uxs7zG3BYAm5byqDsgJNWwxzM6z6iZiAgQR4TJ30JmBTOwqZUw3WlyH3AQ==}
 
+  is-standalone-pwa@0.1.1:
+    resolution: {integrity: sha512-9Cbovsa52vNQCjdXOzeQq5CnCbAcRk05aU62K20WO372NrTv0NxibLFCK6lQ4/iZEFdEA3p3t2VNOn8AJ53F5g==}
+
   is-stream@2.0.1:
     resolution: {integrity: sha512-hFoiJiTl63nn+kstHGBtewWSKnQLpyb155KHheA1l39uvtO9nWIop1p3udqPcUd/xbF1VLMO4n7OI6p7RbngDg==}
     engines: {node: '>=8'}
@@ -2914,6 +2932,26 @@ packages:
   onetime@5.1.2:
     resolution: {integrity: sha512-kbpaSSGJTWdAY5KPVeMOKXSrPtr8C8C7wodJbcsd51jRnmD+GZu8Y0VoU6Dm5Z4vWr0Ig/1NKuWRKf7j5aaYSg==}
     engines: {node: '>=6'}
+
+  openai@6.49.0:
+    resolution: {integrity: sha512-aYCc0C6L864eR6WSYIwQGyXriw/nIyZx0ObvhzOEVuk0zoBDpynjSbrionWI7q65B5H8jJX0DXR9snEzM6bfPg==}
+    peerDependencies:
+      '@aws-sdk/credential-provider-node': '>=3.972.0 <4'
+      '@smithy/hash-node': '>=4.3.0 <5'
+      '@smithy/signature-v4': '>=5.4.0 <6'
+      ws: ^8.18.0
+      zod: ^3.25 || ^4.0
+    peerDependenciesMeta:
+      '@aws-sdk/credential-provider-node':
+        optional: true
+      '@smithy/hash-node':
+        optional: true
+      '@smithy/signature-v4':
+        optional: true
+      ws:
+        optional: true
+      zod:
+        optional: true
 
   optionator@0.9.4:
     resolution: {integrity: sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g==}
@@ -3543,6 +3581,13 @@ packages:
   typescript@5.9.3:
     resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
     engines: {node: '>=14.17'}
+    hasBin: true
+
+  ua-is-frozen@0.1.2:
+    resolution: {integrity: sha512-RwKDW2p3iyWn4UbaxpP2+VxwqXh0jpvdxsYpZ5j/MLLiQOfbsV5shpgQiw93+KMYQPcteeMQ289MaAFzs3G9pw==}
+
+  ua-parser-js@2.0.10:
+    resolution: {integrity: sha512-t+3Ktbq0Ies2vaSezfOaWiolH4OigQIO1dk+1xDpOydB1COVPocVYOrEV5rqZ0kFY9XYG1v9LutCyMgYBpABcw==}
     hasBin: true
 
   uglify-js@3.19.3:
@@ -4916,6 +4961,8 @@ snapshots:
 
   '@types/tough-cookie@4.0.5': {}
 
+  '@types/ua-parser-js@0.7.39': {}
+
   '@types/validator@13.15.10': {}
 
   '@types/yargs-parser@21.0.3': {}
@@ -5603,6 +5650,8 @@ snapshots:
   depd@2.0.0: {}
 
   destr@2.0.5: {}
+
+  detect-europe-js@0.1.2: {}
 
   detect-newline@3.1.0: {}
 
@@ -6348,6 +6397,8 @@ snapshots:
 
   is-promise@4.0.0: {}
 
+  is-standalone-pwa@0.1.1: {}
+
   is-stream@2.0.1: {}
 
   is-unicode-supported@0.1.0: {}
@@ -7008,6 +7059,8 @@ snapshots:
     dependencies:
       mimic-fn: 2.1.0
 
+  openai@6.49.0: {}
+
   optionator@0.9.4:
     dependencies:
       deep-is: 0.1.4
@@ -7638,6 +7691,14 @@ snapshots:
       - supports-color
 
   typescript@5.9.3: {}
+
+  ua-is-frozen@0.1.2: {}
+
+  ua-parser-js@2.0.10:
+    dependencies:
+      detect-europe-js: 0.1.2
+      is-standalone-pwa: 0.1.1
+      ua-is-frozen: 0.1.2
 
   uglify-js@3.19.3:
     optional: true

@@ -292,3 +292,74 @@ model SiteSetting {
   @@map("site_settings")
   @@schema("cms")
 }
+
+// =============== ANALYTICS ===============
+
+model PageView {
+  id         String   @id @default(uuid())
+  path       String
+  referrer   String?
+  userAgent  String?  @map("user_agent")
+  ip         String?
+  country    String?
+  city       String?
+  device     String?  // mobile, tablet, desktop
+  browser    String?
+  os         String?
+  sessionId  String?  @map("session_id")
+  visitorId  String?  @map("visitor_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([path])
+  @@index([createdAt])
+  @@index([sessionId])
+  @@index([visitorId])
+  @@index([ip])
+  @@map("page_views")
+  @@schema("cms")
+}
+
+model AnalyticsEvent {
+  id         String   @id @default(uuid())
+  name       String   // click, scroll, form_submit, etc.
+  category   String?  // navigation, engagement, conversion
+  label      String?  // button text, link href, etc.
+  value      Int?     // numeric value if applicable
+  path       String?
+  ip         String?
+  sessionId  String?  @map("session_id")
+  visitorId  String?  @map("visitor_id")
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([name])
+  @@index([category])
+  @@index([createdAt])
+  @@index([sessionId])
+  @@map("analytics_events")
+  @@schema("cms")
+}
+
+model VisitorSession {
+  id          String    @id @default(uuid())
+  visitorId   String    @map("visitor_id")
+  ip          String?
+  userAgent   String?   @map("user_agent")
+  country     String?
+  city        String?
+  device      String?
+  browser     String?
+  os          String?
+  landingPage String?   @map("landing_page")
+  referrer    String?
+  pageViews   Int       @default(1) @map("page_views")
+  duration    Int       @default(0) // seconds
+  startedAt   DateTime  @default(now()) @map("started_at")
+  lastSeenAt  DateTime  @default(now()) @map("last_seen_at")
+
+  @@index([visitorId])
+  @@index([ip])
+  @@index([startedAt])
+  @@map("visitor_sessions")
+  @@schema("cms")
+}
