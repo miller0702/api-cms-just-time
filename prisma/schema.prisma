@@ -101,11 +101,12 @@ model MediaAsset {
   createdAt DateTime     @default(now()) @map("created_at")
   folder    MediaFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
 
-  newsCovers    News[]        @relation("NewsCover")
-  pillCovers    Pill[]        @relation("PillCover")
-  serviceMedia  Service[]     @relation("ServiceMedia")
-  projectCovers SaleProject[] @relation("ProjectCover")
-  projectLogos  SaleProject[] @relation("ProjectLogo")
+  newsCovers     News[]        @relation("NewsCover")
+  pillCovers     Pill[]        @relation("PillCover")
+  serviceMedia   Service[]     @relation("ServiceMedia")
+  projectCovers  SaleProject[] @relation("ProjectCover")
+  projectLogos   SaleProject[] @relation("ProjectLogo")
+  projectBanners SaleProject[] @relation("ProjectBanner")
 
   @@index([folderId])
   @@map("media_assets")
@@ -164,25 +165,31 @@ model Service {
 }
 
 model SaleProject {
-  id           String        @id @default(uuid())
-  slug         String        @unique
-  name         String
-  locationCity String        @map("location_city")
-  locationDept String        @map("location_dept")
-  summary      String
-  body         String        @db.Text
-  badges       String[]      @default([])
-  tags         String[]      @default([])
-  priceFromCop Decimal       @map("price_from_cop") @db.Decimal(14, 2)
-  erpProjectId String?       @map("erp_project_id")
-  coverMediaId String?       @map("cover_media_id")
-  logoMediaId  String?       @map("logo_media_id")
-  status       PublishStatus @default(draft)
-  publishedAt  DateTime?     @map("published_at")
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
-  coverMedia   MediaAsset?   @relation("ProjectCover", fields: [coverMediaId], references: [id])
-  logoMedia    MediaAsset?   @relation("ProjectLogo", fields: [logoMediaId], references: [id])
+  id            String        @id @default(uuid())
+  slug          String        @unique
+  name          String
+  locationCity  String        @map("location_city")
+  locationDept  String        @map("location_dept")
+  summary       String
+  body          String        @db.Text
+  badges        String[]      @default([])
+  tags          String[]      @default([])
+  priceFromCop  Decimal       @map("price_from_cop") @db.Decimal(14, 2)
+  erpProjectId  String?       @map("erp_project_id")
+  coverMediaId  String?       @map("cover_media_id")
+  logoMediaId   String?       @map("logo_media_id")
+  bannerMediaId String?       @map("banner_media_id")
+  /** Galería: [{ id, mediaId, url, alt?, caption?, size, sortOrder }] */
+  gallery       Json          @default("[]")
+  /** URL del brochure/PDF del proyecto */
+  brochureUrl   String?       @map("brochure_url")
+  status        PublishStatus @default(draft)
+  publishedAt   DateTime?     @map("published_at")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  coverMedia    MediaAsset?   @relation("ProjectCover", fields: [coverMediaId], references: [id])
+  logoMedia     MediaAsset?   @relation("ProjectLogo", fields: [logoMediaId], references: [id])
+  bannerMedia   MediaAsset?   @relation("ProjectBanner", fields: [bannerMediaId], references: [id])
 
   @@map("sale_projects")
   @@schema("cms")

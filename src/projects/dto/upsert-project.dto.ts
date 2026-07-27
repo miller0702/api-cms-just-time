@@ -51,6 +51,18 @@ export class UpsertProjectDto {
   @IsString()
   logoMediaId?: string | null;
 
+  @IsOptional()
+  @IsString()
+  bannerMediaId?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  gallery?: unknown[];
+
+  @IsOptional()
+  @IsString()
+  brochureUrl?: string | null;
+
   @IsEnum(PublishStatus)
   status!: PublishStatus;
 }
