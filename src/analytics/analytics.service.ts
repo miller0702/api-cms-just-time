@@ -67,7 +67,7 @@ export class AnalyticsService {
   }
 
   /**
-   * Actualizar sesión de visitante
+   * Actualizar sesión de visitante - agrupa por IP dentro de una ventana de tiempo
    */
   private async updateSession(
     sessionId: string,
@@ -77,28 +77,46 @@ export class AnalyticsService {
     path: string,
     referrer?: string,
   ) {
-    const existing = await this.prisma.visitorSession.findUnique({
-      where: { id: sessionId },
-    });
+    const parsed = userAgent ? new UAParser.UAParser(userAgent).getResult() : null;
+    const device = parsed?.device?.type || 'desktop';
+    const browser = parsed?.browser?.name || null;
+    
+    // Ventana de tiempo para considerar la misma sesión (30 minutos)
+    const sessionWindow = new Date();
+    sessionWindow.setMinutes(sessionWindow.getMinutes() - 30);
 
-    if (existing) {
+    // Buscar sesión existente por IP + dispositivo + navegador (más reciente)
+    const existingByIp = ip
+      ? await this.prisma.visitorSession.findFirst({
+          where: {
+            ip,
+            device,
+            browser,
+            lastSeenAt: { gte: sessionWindow },
+          },
+          orderBy: { lastSeenAt: 'desc' },
+        })
+      : null;
+
+    if (existingByIp) {
+      // Actualizar sesión existente
       await this.prisma.visitorSession.update({
-        where: { id: sessionId },
+        where: { id: existingByIp.id },
         data: {
           pageViews: { increment: 1 },
           lastSeenAt: new Date(),
         },
       });
     } else {
-      const parsed = userAgent ? new UAParser.UAParser(userAgent).getResult() : null;
+      // Crear nueva sesión
       await this.prisma.visitorSession.create({
         data: {
           id: sessionId,
           visitorId: visitorId || sessionId,
           ip,
           userAgent,
-          device: parsed?.device?.type || 'desktop',
-          browser: parsed?.browser?.name,
+          device,
+          browser,
           os: parsed?.os?.name,
           landingPage: path,
           referrer,
