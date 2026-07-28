@@ -1,52 +1,34 @@
 -- Script para consolidar sesiones duplicadas por IP/dispositivo/navegador
--- Ejecutar manualmente: psql $DATABASE_URL -f prisma/migrations/manual_consolidate_sessions.sql
+-- Ejecutar en Supabase SQL Editor o psql
 
--- 1. Crear tabla temporal con sesiones consolidadas
-CREATE TEMP TABLE consolidated_sessions AS
-SELECT 
-  -- Mantener el ID de la sesión más antigua (primera visita)
-  MIN(id) as keep_id,
-  ip,
-  device,
-  browser,
-  -- Datos de la primera visita
-  MIN(landing_page) as landing_page,
-  MIN(referrer) as referrer,
-  MIN(visitor_id) as visitor_id,
-  MIN(user_agent) as user_agent,
-  MIN(country) as country,
-  MIN(city) as city,
-  MIN(os) as os,
-  -- Agregaciones
-  SUM(page_views) as total_page_views,
-  MIN(started_at) as first_started_at,
-  MAX(last_seen_at) as last_last_seen_at,
-  -- IDs a eliminar
-  ARRAY_AGG(id) FILTER (WHERE id != MIN(id)) as ids_to_delete
-FROM cms.visitor_sessions
-WHERE ip IS NOT NULL
-GROUP BY ip, device, browser
-HAVING COUNT(*) > 1;
-
--- 2. Actualizar las sesiones que se mantienen con los valores consolidados
+-- PASO 1: Primero actualiza las sesiones que se van a mantener
+WITH sessions_to_keep AS (
+  SELECT DISTINCT ON (ip, device, browser)
+    id as keep_id,
+    ip,
+    device,
+    browser
+  FROM cms.visitor_sessions
+  WHERE ip IS NOT NULL
+  ORDER BY ip, device, browser, started_at ASC
+),
+aggregated_data AS (
+  SELECT 
+    sk.keep_id,
+    SUM(vs.page_views) as total_page_views,
+    MIN(vs.started_at) as first_started_at,
+    MAX(vs.last_seen_at) as last_last_seen_at
+  FROM sessions_to_keep sk
+  JOIN cms.visitor_sessions vs 
+    ON vs.ip = sk.ip 
+    AND COALESCE(vs.device, '') = COALESCE(sk.device, '')
+    AND COALESCE(vs.browser, '') = COALESCE(sk.browser, '')
+  GROUP BY sk.keep_id
+)
 UPDATE cms.visitor_sessions vs
 SET 
-  page_views = cs.total_page_views,
-  started_at = cs.first_started_at,
-  last_seen_at = cs.last_last_seen_at
-FROM consolidated_sessions cs
-WHERE vs.id = cs.keep_id;
-
--- 3. Eliminar las sesiones duplicadas
-DELETE FROM cms.visitor_sessions
-WHERE id IN (
-  SELECT UNNEST(ids_to_delete) FROM consolidated_sessions
-);
-
--- 4. Mostrar resumen
-SELECT 
-  'Sesiones consolidadas: ' || COUNT(*) as resultado
-FROM consolidated_sessions;
-
--- Limpiar
-DROP TABLE consolidated_sessions;
+  page_views = ad.total_page_views,
+  started_at = ad.first_started_at,
+  last_seen_at = ad.last_last_seen_at
+FROM aggregated_data ad
+WHERE vs.id = ad.keep_id;
