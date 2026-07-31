@@ -153,11 +153,12 @@ export class MediaService {
     if (folderId) await this.folderById(folderId);
 
     const original = file.originalname || file.filename || 'file';
-    let ext = extname(original) || (file.filename ? extname(file.filename) : '');
-    
+    let ext =
+      extname(original) || (file.filename ? extname(file.filename) : '');
+
     // Corregir extensiones mal escritas comunes
     if (ext.toLowerCase() === '.jepg') ext = '.jpeg';
-    
+
     const objectId = randomUUID();
     const objectKey = `cms/media/${objectId}${ext}`;
 
@@ -175,7 +176,10 @@ export class MediaService {
     // Corregir mimeType si la extensión era .jepg u otra variante de JPEG
     let mimeType = file.mimetype || 'application/octet-stream';
     const lowerExt = ext.toLowerCase();
-    if ((lowerExt === '.jpg' || lowerExt === '.jpeg') && !mimeType.startsWith('image/')) {
+    if (
+      (lowerExt === '.jpg' || lowerExt === '.jpeg') &&
+      !mimeType.startsWith('image/')
+    ) {
       mimeType = 'image/jpeg';
     }
 

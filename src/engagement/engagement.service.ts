@@ -12,25 +12,25 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
-type PublishBucket = { total: number; published: number }
+type PublishBucket = { total: number; published: number };
 
 function fromStatusGroups(
   rows: Array<{ status: PublishStatus; _count: { _all: number } }>,
 ): PublishBucket {
-  let total = 0
-  let published = 0
+  let total = 0;
+  let published = 0;
   for (const row of rows) {
-    total += row._count._all
-    if (row.status === PublishStatus.published) published += row._count._all
+    total += row._count._all;
+    if (row.status === PublishStatus.published) published += row._count._all;
   }
-  return { total, published }
+  return { total, published };
 }
 
 @Injectable()
 export class EngagementService {
   /** Cache corta: el dashboard no necesita datos en tiempo real al segundo. */
-  private statsCache: { at: number; data: unknown } | null = null
-  private static readonly STATS_TTL_MS = 20_000
+  private statsCache: { at: number; data: unknown } | null = null;
+  private static readonly STATS_TTL_MS = 20_000;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -107,7 +107,9 @@ export class EngagementService {
       },
     });
     if (existing) {
-      await this.prisma.contentEngagement.delete({ where: { id: existing.id } });
+      await this.prisma.contentEngagement.delete({
+        where: { id: existing.id },
+      });
       const updated = await this.bump(type, item.id, 'likeCount', -1);
       return { liked: false, likeCount: Math.max(0, updated.likeCount) };
     }
@@ -210,7 +212,9 @@ export class EngagementService {
   }
 
   async moderateComment(id: string, status: CommentStatus) {
-    const comment = await this.prisma.contentComment.findUnique({ where: { id } });
+    const comment = await this.prisma.contentComment.findUnique({
+      where: { id },
+    });
     if (!comment) throw new NotFoundException('Comentario no encontrado');
     const updated = await this.prisma.contentComment.update({
       where: { id },
@@ -220,23 +224,40 @@ export class EngagementService {
       comment.status !== CommentStatus.approved &&
       status === CommentStatus.approved
     ) {
-      await this.bump(comment.contentType, comment.contentId, 'commentCount', 1);
+      await this.bump(
+        comment.contentType,
+        comment.contentId,
+        'commentCount',
+        1,
+      );
     }
     if (
       comment.status === CommentStatus.approved &&
       status !== CommentStatus.approved
     ) {
-      await this.bump(comment.contentType, comment.contentId, 'commentCount', -1);
+      await this.bump(
+        comment.contentType,
+        comment.contentId,
+        'commentCount',
+        -1,
+      );
     }
     return updated;
   }
 
   async deleteComment(id: string) {
-    const comment = await this.prisma.contentComment.findUnique({ where: { id } });
+    const comment = await this.prisma.contentComment.findUnique({
+      where: { id },
+    });
     if (!comment) throw new NotFoundException('Comentario no encontrado');
     await this.prisma.contentComment.delete({ where: { id } });
     if (comment.status === CommentStatus.approved) {
-      await this.bump(comment.contentType, comment.contentId, 'commentCount', -1);
+      await this.bump(
+        comment.contentType,
+        comment.contentId,
+        'commentCount',
+        -1,
+      );
     }
     return { ok: true };
   }
@@ -246,10 +267,10 @@ export class EngagementService {
       this.statsCache &&
       Date.now() - this.statsCache.at < EngagementService.STATS_TTL_MS
     ) {
-      return this.statsCache.data
+      return this.statsCache.data;
     }
 
-    const since = new Date(Date.now() - 1000 * 60 * 60 * 24 * 30)
+    const since = new Date(Date.now() - 1000 * 60 * 60 * 24 * 30);
     const engagementSelect = {
       id: true,
       title: true,
@@ -258,7 +279,7 @@ export class EngagementService {
       likeCount: true,
       shareCount: true,
       commentCount: true,
-    } as const
+    } as const;
 
     const [
       newsGroups,
@@ -318,31 +339,31 @@ export class EngagementService {
         GROUP BY 1
         ORDER BY 1
       `,
-    ])
+    ]);
 
-    const byDay: Record<string, number> = {}
+    const byDay: Record<string, number> = {};
     for (let i = 29; i >= 0; i--) {
-      const d = new Date(Date.now() - i * 86400000)
-      byDay[d.toISOString().slice(0, 10)] = 0
+      const d = new Date(Date.now() - i * 86400000);
+      byDay[d.toISOString().slice(0, 10)] = 0;
     }
     for (const row of leadDays) {
       const key =
         row.day instanceof Date
           ? row.day.toISOString().slice(0, 10)
-          : String(row.day).slice(0, 10)
-      if (key in byDay) byDay[key] = Number(row.count) || 0
+          : String(row.day).slice(0, 10);
+      if (key in byDay) byDay[key] = Number(row.count) || 0;
     }
 
-    let leadsTotal = 0
-    let leadsNew = 0
-    let leadsInProgress = 0
-    let leadsDone = 0
+    let leadsTotal = 0;
+    let leadsNew = 0;
+    let leadsInProgress = 0;
+    let leadsDone = 0;
     for (const row of leadGroups) {
-      const n = row._count._all
-      leadsTotal += n
-      if (row.status === 'new') leadsNew = n
-      else if (row.status === 'in_progress') leadsInProgress = n
-      else if (row.status === 'done') leadsDone = n
+      const n = row._count._all;
+      leadsTotal += n;
+      if (row.status === 'new') leadsNew = n;
+      else if (row.status === 'in_progress') leadsInProgress = n;
+      else if (row.status === 'done') leadsDone = n;
     }
 
     const data = {
@@ -372,9 +393,9 @@ export class EngagementService {
         .sort((a, b) => b.viewCount - a.viewCount)
         .slice(0, 6),
       recentLeads,
-    }
+    };
 
-    this.statsCache = { at: Date.now(), data }
-    return data
+    this.statsCache = { at: Date.now(), data };
+    return data;
   }
 }

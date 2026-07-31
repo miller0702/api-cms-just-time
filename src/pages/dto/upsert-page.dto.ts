@@ -36,7 +36,15 @@ export class UpsertPageDto {
 
   @IsOptional()
   @IsString()
+  seoTitle?: string | null;
+
+  @IsOptional()
+  @IsString()
   seoDescription?: string | null;
+
+  @IsOptional()
+  @IsString()
+  seoImageUrl?: string | null;
 
   @IsEnum(PublishStatus)
   status!: PublishStatus;

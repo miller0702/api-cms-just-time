@@ -1,4 +1,10 @@
-import { IsInt, IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsInt,
+  IsObject,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 export class TrackEventDto {
   @IsString()

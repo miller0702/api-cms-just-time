@@ -1,9 +1,30 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
-import { cert, getApps, initializeApp, type ServiceAccount } from 'firebase-admin/app';
+import {
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
+import {
+  cert,
+  getApps,
+  initializeApp,
+  type ServiceAccount,
+} from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
+import {
+  buildLeadEmail,
+  buildPqrsAckEmail,
+  leadMailRecipients,
+} from './lead-mail';
+import {
+  leadNotificationRoute,
+  type LeadNotificationInput,
+} from './lead-routing';
+import { MailService } from './mail.service';
+
+export type { LeadNotificationInput } from './lead-routing';
 
 export type AdminNotificationPayload = {
   type: 'lead' | 'comment';
@@ -22,7 +43,7 @@ export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
   private enabled = false;
 
-  constructor() {
+  constructor(private readonly mail: MailService) {
     this.init();
   }
 
@@ -76,7 +97,11 @@ export class NotificationsService {
 
   private init() {
     const serviceAccount = this.loadServiceAccount();
-    if (!serviceAccount?.projectId || !serviceAccount.clientEmail || !serviceAccount.privateKey) {
+    if (
+      !serviceAccount?.projectId ||
+      !serviceAccount.clientEmail ||
+      !serviceAccount.privateKey
+    ) {
       this.logger.warn(
         'Firebase Admin no configurado (FIREBASE_SERVICE_ACCOUNT_PATH o PROJECT_ID/CLIENT_EMAIL/PRIVATE_KEY). Notificaciones realtime desactivadas.',
       );
@@ -136,21 +161,25 @@ export class NotificationsService {
     }
   }
 
-  async notifyLead(lead: {
-    id: string;
-    name: string;
-    email: string;
-    company?: string | null;
-    message?: string | null;
-  }) {
-    const who = lead.company ? `${lead.name} (${lead.company})` : lead.name;
-    await this.push({
-      type: 'lead',
-      title: 'Nueva cotización',
-      body: `${who} · ${lead.email}`,
-      href: '/admin/leads',
-      entityId: lead.id,
-    });
+  async notifyLead(lead: LeadNotificationInput) {
+    const route = leadNotificationRoute(lead);
+    await this.push({ type: 'lead', ...route, entityId: lead.id });
+    await this.emailLead(lead, route);
+  }
+
+  private async emailLead(
+    lead: LeadNotificationInput,
+    route: { title: string; body: string; href: string },
+  ) {
+    if (!this.mail.configured) return;
+    const siteUrl = process.env.ADMIN_SITE_URL?.trim();
+    const recipients = leadMailRecipients(lead.kind, process.env);
+    if (recipients.length) {
+      const { subject, text } = buildLeadEmail(lead, route, siteUrl);
+      await this.mail.send({ to: recipients, subject, text });
+    }
+    const ack = buildPqrsAckEmail(lead, process.env.PUBLIC_SITE_URL?.trim());
+    if (ack) await this.mail.send(ack);
   }
 
   async notifyComment(comment: {
@@ -160,9 +189,7 @@ export class NotificationsService {
     contentType: string;
   }) {
     const snippet =
-      comment.body.length > 80
-        ? `${comment.body.slice(0, 77)}…`
-        : comment.body;
+      comment.body.length > 80 ? `${comment.body.slice(0, 77)}…` : comment.body;
     await this.push({
       type: 'comment',
       title: 'Nuevo comentario',

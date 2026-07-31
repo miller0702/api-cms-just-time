@@ -53,6 +53,18 @@ export class UpsertServiceDto {
   @IsString()
   summary!: string;
 
+  @IsOptional()
+  @IsString()
+  seoTitle?: string | null;
+
+  @IsOptional()
+  @IsString()
+  seoDescription?: string | null;
+
+  @IsOptional()
+  @IsString()
+  seoImageUrl?: string | null;
+
   @IsString()
   body!: string;
 

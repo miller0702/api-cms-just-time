@@ -30,7 +30,9 @@ export class PagesService {
         id: true,
         slug: true,
         title: true,
+        seoTitle: true,
         seoDescription: true,
+        seoImageUrl: true,
         status: true,
         publishedAt: true,
         createdAt: true,
@@ -96,10 +98,11 @@ export class PagesService {
       data: {
         slug: dto.slug,
         title: dto.title,
+        seoTitle: dto.seoTitle || null,
         seoDescription: dto.seoDescription || null,
+        seoImageUrl: dto.seoImageUrl || null,
         status: dto.status,
-        publishedAt:
-          dto.status === PublishStatus.published ? new Date() : null,
+        publishedAt: dto.status === PublishStatus.published ? new Date() : null,
         blocks: {
           create: dto.blocks.map((b) => ({
             type: b.type,
@@ -127,7 +130,9 @@ export class PagesService {
       data: {
         slug: dto.slug,
         title: dto.title,
+        seoTitle: dto.seoTitle || null,
         seoDescription: dto.seoDescription || null,
+        seoImageUrl: dto.seoImageUrl || null,
         status: dto.status,
         publishedAt:
           dto.status === PublishStatus.published

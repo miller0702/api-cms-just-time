@@ -2,7 +2,11 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
-import { ContentType, ContentContext, GenerateContentDto } from './dto/generate-content.dto';
+import {
+  ContentType,
+  ContentContext,
+  GenerateContentDto,
+} from './dto/generate-content.dto';
 import { ChatAgentDto } from './dto/chat-agent.dto';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -21,16 +25,26 @@ export class AiService {
       this.logger.log('OpenAI client inicializado correctamente');
     } else {
       this.openai = null;
-      this.logger.warn('OPENAI_API_KEY no configurada - AI service deshabilitado');
+      this.logger.warn(
+        'OPENAI_API_KEY no configurada - AI service deshabilitado',
+      );
     }
   }
 
-  async generateContent(dto: GenerateContentDto): Promise<{ content: string; tokensUsed: number }> {
+  async generateContent(
+    dto: GenerateContentDto,
+  ): Promise<{ content: string; tokensUsed: number }> {
     if (!this.openai) {
-      throw new BadRequestException('El servicio de IA no está configurado. Falta OPENAI_API_KEY.');
+      throw new BadRequestException(
+        'El servicio de IA no está configurado. Falta OPENAI_API_KEY.',
+      );
     }
 
-    const systemPrompt = this.buildSystemPrompt(dto.type, dto.context ?? ContentContext.GENERAL, dto.tone);
+    const systemPrompt = this.buildSystemPrompt(
+      dto.type,
+      dto.context ?? ContentContext.GENERAL,
+      dto.tone,
+    );
     const userPrompt = this.buildUserPrompt(dto);
 
     try {
@@ -51,17 +65,22 @@ export class AiService {
 
       return { content, tokensUsed };
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Error desconocido';
+      const message =
+        error instanceof Error ? error.message : 'Error desconocido';
       this.logger.error(`Error generando contenido: ${message}`);
       throw new BadRequestException(`Error al generar contenido: ${message}`);
     }
   }
 
-  async isConfigured(): Promise<boolean> {
+  isConfigured(): boolean {
     return this.openai !== null;
   }
 
-  private buildSystemPrompt(type: ContentType, context: ContentContext, tone?: string): string {
+  private buildSystemPrompt(
+    type: ContentType,
+    context: ContentContext,
+    tone?: string,
+  ): string {
     const companyContext = `
 Eres un redactor de contenido profesional para Just Time S.A.S, una empresa colombiana especializada en:
 - Urbanismo: obras civiles, topografía, diseño arquitectónico, desarrollo de vías, fotogrametría
@@ -71,17 +90,23 @@ Eres un redactor de contenido profesional para Just Time S.A.S, una empresa colo
 La empresa opera principalmente en el Caribe colombiano, especialmente en San Alberto (Cesar) y Cartagena (Bolívar).
 `;
 
-    const toneInstruction = tone 
-      ? `Usa un tono ${tone}.` 
+    const toneInstruction = tone
+      ? `Usa un tono ${tone}.`
       : 'Usa un tono profesional pero cercano, típico de empresas colombianas del sector construcción.';
 
     const contextMap: Record<ContentContext, string> = {
-      [ContentContext.NEWS]: 'Estás escribiendo contenido para una noticia corporativa.',
-      [ContentContext.SERVICE]: 'Estás describiendo un servicio técnico de la empresa.',
-      [ContentContext.PROJECT]: 'Estás describiendo un proyecto inmobiliario de venta de lotes.',
-      [ContentContext.PAGE]: 'Estás escribiendo contenido para una página del sitio web.',
-      [ContentContext.PILL]: 'Estás escribiendo una "píldora informativa" - contenido breve y educativo.',
-      [ContentContext.GENERAL]: 'Estás escribiendo contenido general para la empresa.',
+      [ContentContext.NEWS]:
+        'Estás escribiendo contenido para una noticia corporativa.',
+      [ContentContext.SERVICE]:
+        'Estás describiendo un servicio técnico de la empresa.',
+      [ContentContext.PROJECT]:
+        'Estás describiendo un proyecto inmobiliario de venta de lotes.',
+      [ContentContext.PAGE]:
+        'Estás escribiendo contenido para una página del sitio web.',
+      [ContentContext.PILL]:
+        'Estás escribiendo una "píldora informativa" - contenido breve y educativo.',
+      [ContentContext.GENERAL]:
+        'Estás escribiendo contenido general para la empresa.',
     };
 
     const typeInstructions: Record<ContentType, string> = {
@@ -208,7 +233,9 @@ IMPORTANTE:
   /**
    * Chat del agente público - responde preguntas sobre la empresa
    */
-  async chatAgent(dto: ChatAgentDto): Promise<{ text: string; links?: Array<{ label: string; href: string }> }> {
+  async chatAgent(
+    dto: ChatAgentDto,
+  ): Promise<{ text: string; links?: Array<{ label: string; href: string }> }> {
     if (!this.openai) {
       return {
         text: 'Puedo ayudarte con urbanismo, hidrocarburos, proyectos de lotes o una cotización. Escribe "asesor" para hablar con el equipo.',
@@ -230,7 +257,13 @@ IMPORTANTE:
         }),
         this.prisma.saleProject.findMany({
           where: { status: 'published' },
-          select: { name: true, summary: true, slug: true, locationCity: true, priceFromCop: true },
+          select: {
+            name: true,
+            summary: true,
+            slug: true,
+            locationCity: true,
+            priceFromCop: true,
+          },
           take: 10,
         }),
         this.prisma.siteSetting.findMany({
@@ -238,13 +271,14 @@ IMPORTANTE:
         }),
       ]);
 
-      const brandSetting = settings.find(s => s.key === 'brand');
-      const contactSetting = settings.find(s => s.key === 'contact');
+      const brandSetting = settings.find((s) => s.key === 'brand');
+      const contactSetting = settings.find((s) => s.key === 'contact');
       const brand = brandSetting?.value as Record<string, string> | undefined;
-      const contact = contactSetting?.value as Record<string, string> | undefined;
+      const contact = contactSetting?.value as
+        Record<string, string> | undefined;
 
-      const servicesUrbanismo = services.filter(s => s.line === 'urbanismo');
-      const servicesHidro = services.filter(s => s.line === 'hidrocarburos');
+      const servicesUrbanismo = services.filter((s) => s.line === 'urbanismo');
+      const servicesHidro = services.filter((s) => s.line === 'hidrocarburos');
 
       const contextPrompt = `
 Eres un asistente experto en construcción, ingeniería civil y sector energético que trabaja para ${brand?.name || 'Just Time S.A.S.'}.
@@ -283,9 +317,9 @@ Respuesta: "En urbanismo cubrimos topografía..." ← ESTO ESTÁ MAL porque no e
 - Email: ${contact?.email || 'administracion@justtimesas.com'}
 
 SERVICIOS:
-1. Urbanismo: ${servicesUrbanismo.map(s => s.title).join(', ') || 'obras civiles, topografía, diseño arquitectónico'}
-2. Hidrocarburos: ${servicesHidro.map(s => s.title).join(', ') || 'maquinaria amarilla, transporte, izaje'}
-3. Proyectos inmobiliarios: ${projects.map(p => p.name).join(', ') || 'Magno Country Club, El Poblado'}
+1. Urbanismo: ${servicesUrbanismo.map((s) => s.title).join(', ') || 'obras civiles, topografía, diseño arquitectónico'}
+2. Hidrocarburos: ${servicesHidro.map((s) => s.title).join(', ') || 'maquinaria amarilla, transporte, izaje'}
+3. Proyectos inmobiliarios: ${projects.map((p) => p.name).join(', ') || 'Magno Country Club, El Poblado'}
 
 === OTRAS REGLAS ===
 - Responde en español colombiano, profesional pero cercano
@@ -304,17 +338,21 @@ SERVICIOS:
         max_tokens: 200,
       });
 
-      const text = response.choices[0]?.message?.content?.trim() || 
+      const text =
+        response.choices[0]?.message?.content?.trim() ||
         'Puedo ayudarte con urbanismo, hidrocarburos o proyectos. ¿Qué te gustaría saber?';
 
       // Detectar links relevantes basados en la respuesta y la pregunta
       const links = this.detectRelevantLinks(dto.message, text, dto.pathname);
 
-      this.logger.log(`Chat agent: "${dto.message.slice(0, 50)}..." → ${response.usage?.total_tokens} tokens`);
+      this.logger.log(
+        `Chat agent: "${dto.message.slice(0, 50)}..." → ${response.usage?.total_tokens} tokens`,
+      );
 
       return { text, links };
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Error desconocido';
+      const message =
+        error instanceof Error ? error.message : 'Error desconocido';
       this.logger.error(`Error en chat agent: ${message}`);
       return {
         text: 'Puedo ayudarte con urbanismo, hidrocarburos, proyectos de lotes o una cotización.',
@@ -336,29 +374,45 @@ SERVICIOS:
     const links: Array<{ label: string; href: string }> = [];
 
     // Detectar menciones de líneas de negocio - urbanismo
-    if (/urbanismo|obra civil|topograf|arquitect|fotogrametr|dron|levantamiento|geodesia|diseño|vía|ciment/i.test(combined)) {
+    if (
+      /urbanismo|obra civil|topograf|arquitect|fotogrametr|dron|levantamiento|geodesia|diseño|vía|ciment/i.test(
+        combined,
+      )
+    ) {
       links.push({ label: 'Ver urbanismo', href: '/urbanismo' });
     }
-    
+
     // Detectar menciones de líneas de negocio - hidrocarburos
-    if (/hidrocarburo|transporte|maquinaria|izaje|energetic|excav|retroexcav|bulldozer|grua|carga|petrol|pozo|tracto|cama baja/i.test(combined)) {
+    if (
+      /hidrocarburo|transporte|maquinaria|izaje|energetic|excav|retroexcav|bulldozer|grua|carga|petrol|pozo|tracto|cama baja/i.test(
+        combined,
+      )
+    ) {
       links.push({ label: 'Ver hidrocarburos', href: '/hidrocarburos' });
     }
-    
+
     // Detectar menciones de proyectos
-    if (/proyecto|lote|magno|poblado|country|industrial|parcel|urbanizaci|terreno|inmobi/i.test(combined)) {
+    if (
+      /proyecto|lote|magno|poblado|country|industrial|parcel|urbanizaci|terreno|inmobi/i.test(
+        combined,
+      )
+    ) {
       links.push({ label: 'Ver proyectos', href: '/proyectos' });
     }
 
     // Detectar intención de cotizar
-    if (/cotiz|precio|presupuesto|contacto|formulario|cuánto|cuanto|cuesta|valor/i.test(combined)) {
+    if (
+      /cotiz|precio|presupuesto|contacto|formulario|cuánto|cuanto|cuesta|valor/i.test(
+        combined,
+      )
+    ) {
       let line = '';
       if (pathname?.startsWith('/hidrocarburos')) line = 'hidrocarburos';
       else if (pathname?.startsWith('/urbanismo')) line = 'urbanismo';
       else if (pathname?.startsWith('/proyectos')) line = 'proyectos';
-      links.push({ 
-        label: 'Ir a contacto', 
-        href: line ? `/contacto?line=${line}` : '/contacto' 
+      links.push({
+        label: 'Ir a contacto',
+        href: line ? `/contacto?line=${line}` : '/contacto',
       });
     }
 
@@ -374,7 +428,10 @@ SERVICIOS:
   /**
    * Asistente de ayuda para el panel admin
    */
-  async adminHelp(message: string, currentPage?: string): Promise<{ text: string }> {
+  async adminHelp(
+    message: string,
+    currentPage?: string,
+  ): Promise<{ text: string }> {
     if (!this.openai) {
       return {
         text: 'El asistente de ayuda no está disponible. Contacta al administrador del sistema.',
@@ -382,23 +439,37 @@ SERVICIOS:
     }
 
     const pageContextMap: Record<string, string> = {
-      dashboard: 'El Dashboard muestra estadísticas generales del sitio: vistas, contenido publicado, leads recientes.',
-      analytics: 'Analytics muestra métricas detalladas: visitas por página, IPs, dispositivos, navegadores y eventos.',
-      noticias: 'Aquí gestionas noticias. Puedes crear, editar, publicar/despublicar y eliminar noticias. Cada noticia tiene título, slug, extracto, cuerpo (HTML), imagen de portada y estado.',
-      pildoras: 'Las píldoras son contenidos breves tipo tips/consejos. Similar a noticias pero más cortas y categorizadas.',
-      servicios: 'Aquí gestionas servicios de la empresa. Cada servicio pertenece a una línea (urbanismo/hidrocarburos) y tiene título, slug, resumen, cuerpo, tags y galería.',
-      proyectos: 'Proyectos de venta de lotes inmobiliarios. Incluyen ubicación, precios, badges, tags y galería de imágenes.',
-      paginas: 'Páginas CMS con editor de bloques. Puedes crear páginas personalizadas con diferentes tipos de bloques: hero, texto, grids, etc.',
-      media: 'Biblioteca de medios. Sube imágenes, videos, PDFs. Organiza en carpetas. Recomendaciones de tamaño según uso.',
-      portada: 'Configura el hero del home: textos, CTAs, imágenes/videos de fondo, animaciones por servicio.',
-      leads: 'Cotizaciones/leads recibidos desde el formulario de contacto. Puedes cambiar su estado (nuevo, en progreso, cerrado).',
-      usuarios: 'Gestión de usuarios administradores. Crear, editar, asignar roles.',
-      roles: 'Gestión de roles y permisos. Define qué puede hacer cada tipo de usuario.',
-      ajustes: 'Personalización del sitio: marca, logos, colores, menú, footer, redes sociales, textos legales, modo del sitio.',
+      dashboard:
+        'El Dashboard muestra estadísticas generales del sitio: vistas, contenido publicado, leads recientes.',
+      analytics:
+        'Analytics muestra métricas detalladas: visitas por página, IPs, dispositivos, navegadores y eventos.',
+      noticias:
+        'Aquí gestionas noticias. Puedes crear, editar, publicar/despublicar y eliminar noticias. Cada noticia tiene título, slug, extracto, cuerpo (HTML), imagen de portada y estado.',
+      pildoras:
+        'Las píldoras son contenidos breves tipo tips/consejos. Similar a noticias pero más cortas y categorizadas.',
+      servicios:
+        'Aquí gestionas servicios de la empresa. Cada servicio pertenece a una línea (urbanismo/hidrocarburos) y tiene título, slug, resumen, cuerpo, tags y galería.',
+      proyectos:
+        'Proyectos de venta de lotes inmobiliarios. Incluyen ubicación, precios, badges, tags y galería de imágenes.',
+      paginas:
+        'Páginas CMS con editor de bloques. Puedes crear páginas personalizadas con diferentes tipos de bloques: hero, texto, grids, etc.',
+      media:
+        'Biblioteca de medios. Sube imágenes, videos, PDFs. Organiza en carpetas. Recomendaciones de tamaño según uso.',
+      portada:
+        'Configura el hero del home: textos, CTAs, imágenes/videos de fondo, animaciones por servicio.',
+      leads:
+        'Cotizaciones/leads recibidos desde el formulario de contacto. Puedes cambiar su estado (nuevo, en progreso, cerrado).',
+      usuarios:
+        'Gestión de usuarios administradores. Crear, editar, asignar roles.',
+      roles:
+        'Gestión de roles y permisos. Define qué puede hacer cada tipo de usuario.',
+      ajustes:
+        'Personalización del sitio: marca, logos, colores, menú, footer, redes sociales, textos legales, modo del sitio.',
     };
 
-    const currentPageContext = currentPage 
-      ? pageContextMap[currentPage] || 'Página general del panel de administración.'
+    const currentPageContext = currentPage
+      ? pageContextMap[currentPage] ||
+        'Página general del panel de administración.'
       : 'Panel de administración general.';
 
     const systemPrompt = `
@@ -460,10 +531,13 @@ REGLAS:
         max_tokens: 300,
       });
 
-      const text = response.choices[0]?.message?.content?.trim() || 
+      const text =
+        response.choices[0]?.message?.content?.trim() ||
         'No pude procesar tu pregunta. Intenta reformularla.';
 
-      this.logger.log(`Admin help: "${message.slice(0, 50)}..." → ${response.usage?.total_tokens} tokens`);
+      this.logger.log(
+        `Admin help: "${message.slice(0, 50)}..." → ${response.usage?.total_tokens} tokens`,
+      );
 
       return { text };
     } catch (error: unknown) {

@@ -11,8 +11,8 @@ export class AiController {
 
   @Get('status')
   @UseGuards(JwtAuthGuard)
-  async getStatus() {
-    const configured = await this.aiService.isConfigured();
+  getStatus() {
+    const configured = this.aiService.isConfigured();
     return {
       enabled: configured,
       message: configured

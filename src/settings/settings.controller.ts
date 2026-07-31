@@ -24,6 +24,13 @@ export class SettingsController {
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions('settings.write')
+  @Get('admin/settings/tracking')
+  getTrackingAdmin() {
+    return this.settings.getTrackingAdmin();
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('settings.write')
   @Put('admin/settings')
   upsert(@Body() body: { key: string; value: unknown }) {
     return this.settings.upsert(body.key, body.value);

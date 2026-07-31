@@ -1,36 +1,31 @@
-import {
-  IsArray,
-  IsOptional,
-  IsString,
-  MinLength,
-} from 'class-validator'
+import { IsArray, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class CreateRoleDto {
   @IsString()
   @MinLength(2)
-  name!: string
+  name!: string;
 
   @IsOptional()
   @IsString()
-  description?: string
+  description?: string;
 
   @IsArray()
   @IsString({ each: true })
-  permissions!: string[]
+  permissions!: string[];
 }
 
 export class UpdateRoleDto {
   @IsOptional()
   @IsString()
   @MinLength(2)
-  name?: string
+  name?: string;
 
   @IsOptional()
   @IsString()
-  description?: string | null
+  description?: string | null;
 
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  permissions?: string[]
+  permissions?: string[];
 }

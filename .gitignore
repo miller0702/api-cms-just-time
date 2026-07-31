@@ -3,6 +3,7 @@ node_modules
 .env
 .env.*
 !.env.example
+!.env.production.example
 secrets/
 
 /generated/prisma
@@ -10,3 +11,5 @@ uploads/
 dist
 coverage
 .DS_Store
+package-lock.json
+yarn.lock

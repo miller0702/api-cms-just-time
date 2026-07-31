@@ -4,40 +4,40 @@ import {
   IsString,
   IsUUID,
   MinLength,
-} from 'class-validator'
+} from 'class-validator';
 
 export class CreateAdminUserDto {
   @IsEmail()
-  email!: string
+  email!: string;
 
   @IsString()
   @MinLength(2)
-  name!: string
+  name!: string;
 
   @IsString()
   @MinLength(8)
-  password!: string
+  password!: string;
 
   @IsUUID()
-  roleId!: string
+  roleId!: string;
 }
 
 export class UpdateAdminUserDto {
   @IsOptional()
   @IsEmail()
-  email?: string
+  email?: string;
 
   @IsOptional()
   @IsString()
   @MinLength(2)
-  name?: string
+  name?: string;
 
   @IsOptional()
   @IsString()
   @MinLength(8)
-  password?: string
+  password?: string;
 
   @IsOptional()
   @IsUUID()
-  roleId?: string
+  roleId?: string;
 }

@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { TrackPageViewDto } from './dto/track-pageview.dto';
 import { TrackEventDto } from './dto/track-event.dto';
@@ -7,15 +8,23 @@ import * as UAParser from 'ua-parser-js';
 @Injectable()
 export class AnalyticsService {
   private readonly logger = new Logger(AnalyticsService.name);
+  private readonly statsCache = new Map<number, { at: number; data: unknown }>();
+  private readonly STATS_CACHE_MS = 30_000;
 
   constructor(private readonly prisma: PrismaService) {}
 
   /**
    * Registra una vista de página
    */
-  async trackPageView(dto: TrackPageViewDto, ip: string | null, userAgent: string | null) {
-    const parsed = userAgent ? new UAParser.UAParser(userAgent).getResult() : null;
-    
+  async trackPageView(
+    dto: TrackPageViewDto,
+    ip: string | null,
+    userAgent: string | null,
+  ) {
+    const parsed = userAgent
+      ? new UAParser.UAParser(userAgent).getResult()
+      : null;
+
     const device = parsed?.device?.type || 'desktop';
     const browser = parsed?.browser?.name || null;
     const os = parsed?.os?.name || null;
@@ -37,7 +46,14 @@ export class AnalyticsService {
 
     // Actualizar o crear sesión
     if (dto.sessionId) {
-      await this.updateSession(dto.sessionId, dto.visitorId, ip, userAgent, dto.path, dto.referrer);
+      await this.updateSession(
+        dto.sessionId,
+        dto.visitorId,
+        ip,
+        userAgent,
+        dto.path,
+        dto.referrer,
+      );
     }
 
     this.logger.debug(`PageView tracked: ${dto.path} from ${ip}`);
@@ -58,11 +74,13 @@ export class AnalyticsService {
         ip,
         sessionId: dto.sessionId,
         visitorId: dto.visitorId,
-        metadata: dto.metadata as object | undefined,
+        metadata: dto.metadata as Prisma.InputJsonValue | undefined,
       },
     });
 
-    this.logger.debug(`Event tracked: ${dto.name} (${dto.category}) from ${ip}`);
+    this.logger.debug(
+      `Event tracked: ${dto.name} (${dto.category}) from ${ip}`,
+    );
     return event;
   }
 
@@ -77,10 +95,12 @@ export class AnalyticsService {
     path: string,
     referrer?: string,
   ) {
-    const parsed = userAgent ? new UAParser.UAParser(userAgent).getResult() : null;
+    const parsed = userAgent
+      ? new UAParser.UAParser(userAgent).getResult()
+      : null;
     const device = parsed?.device?.type || 'desktop';
     const browser = parsed?.browser?.name || null;
-    
+
     // Ventana de tiempo para considerar la misma sesión (30 minutos)
     const sessionWindow = new Date();
     sessionWindow.setMinutes(sessionWindow.getMinutes() - 30);
@@ -129,8 +149,14 @@ export class AnalyticsService {
    * Obtener estadísticas generales
    */
   async getStats(days: number = 30) {
+    const safeDays = Math.min(Math.max(days || 30, 1), 90);
+    const cached = this.statsCache.get(safeDays);
+    if (cached && Date.now() - cached.at < this.STATS_CACHE_MS) {
+      return cached.data;
+    }
+
     const since = new Date();
-    since.setDate(since.getDate() - days);
+    since.setDate(since.getDate() - safeDays);
 
     const [
       totalPageViews,
@@ -144,20 +170,13 @@ export class AnalyticsService {
       dailyViews,
       topIPs,
     ] = await Promise.all([
-      // Total page views
       this.prisma.pageView.count({
         where: { createdAt: { gte: since } },
       }),
-      // Unique visitors
-      this.prisma.pageView.groupBy({
-        by: ['visitorId'],
-        where: { createdAt: { gte: since }, visitorId: { not: null } },
-      }).then((r: unknown[]) => r.length),
-      // Unique sessions
+      this.countDistinctVisitors(since),
       this.prisma.visitorSession.count({
         where: { startedAt: { gte: since } },
       }),
-      // Top pages
       this.prisma.pageView.groupBy({
         by: ['path'],
         where: { createdAt: { gte: since } },
@@ -165,7 +184,6 @@ export class AnalyticsService {
         orderBy: { _count: { path: 'desc' } },
         take: 10,
       }),
-      // Top referrers
       this.prisma.pageView.groupBy({
         by: ['referrer'],
         where: { createdAt: { gte: since }, referrer: { not: null } },
@@ -173,13 +191,11 @@ export class AnalyticsService {
         orderBy: { _count: { referrer: 'desc' } },
         take: 10,
       }),
-      // Device stats
       this.prisma.pageView.groupBy({
         by: ['device'],
         where: { createdAt: { gte: since } },
         _count: { device: true },
       }),
-      // Browser stats
       this.prisma.pageView.groupBy({
         by: ['browser'],
         where: { createdAt: { gte: since }, browser: { not: null } },
@@ -187,15 +203,20 @@ export class AnalyticsService {
         orderBy: { _count: { browser: 'desc' } },
         take: 5,
       }),
-      // Recent events
       this.prisma.analyticsEvent.findMany({
         where: { createdAt: { gte: since } },
         orderBy: { createdAt: 'desc' },
         take: 50,
+        select: {
+          id: true,
+          name: true,
+          category: true,
+          label: true,
+          path: true,
+          createdAt: true,
+        },
       }),
-      // Daily views
-      this.getDailyViews(days),
-      // Top IPs
+      this.getDailyViews(safeDays, since),
       this.prisma.pageView.groupBy({
         by: ['ip'],
         where: { createdAt: { gte: since }, ip: { not: null } },
@@ -205,21 +226,49 @@ export class AnalyticsService {
       }),
     ]);
 
-    return {
-      period: { days, since: since.toISOString() },
+    const data = {
+      period: { days: safeDays, since: since.toISOString() },
       overview: {
         totalPageViews,
         uniqueVisitors,
         uniqueSessions,
-        avgPagesPerSession: uniqueSessions > 0 ? Math.round(totalPageViews / uniqueSessions * 10) / 10 : 0,
+        avgPagesPerSession:
+          uniqueSessions > 0
+            ? Math.round((totalPageViews / uniqueSessions) * 10) / 10
+            : 0,
       },
-      topPages: topPages.map((p: { path: string; _count: { path: number } }) => ({ path: p.path, views: p._count.path })),
-      topReferrers: topReferrers.map((r: { referrer: string | null; _count: { referrer: number } }) => ({ referrer: r.referrer, count: r._count.referrer })),
-      devices: deviceStats.map((d: { device: string | null; _count: { device: number } }) => ({ device: d.device || 'unknown', count: d._count.device })),
-      browsers: browserStats.map((b: { browser: string | null; _count: { browser: number } }) => ({ browser: b.browser, count: b._count.browser })),
-      topIPs: topIPs.map((i: { ip: string | null; _count: { ip: number } }) => ({ ip: i.ip, views: i._count.ip })),
+      topPages: topPages.map(
+        (p: { path: string; _count: { path: number } }) => ({
+          path: p.path,
+          views: p._count.path,
+        }),
+      ),
+      topReferrers: topReferrers.map(
+        (r: { referrer: string | null; _count: { referrer: number } }) => ({
+          referrer: r.referrer,
+          count: r._count.referrer,
+        }),
+      ),
+      devices: deviceStats.map(
+        (d: { device: string | null; _count: { device: number } }) => ({
+          device: d.device || 'unknown',
+          count: d._count.device,
+        }),
+      ),
+      browsers: browserStats.map(
+        (b: { browser: string | null; _count: { browser: number } }) => ({
+          browser: b.browser,
+          count: b._count.browser,
+        }),
+      ),
+      topIPs: topIPs.map(
+        (i: { ip: string | null; _count: { ip: number } }) => ({
+          ip: i.ip,
+          views: i._count.ip,
+        }),
+      ),
       dailyViews,
-      recentEvents: recentEvents.map((e: { id: string; name: string; category: string | null; label: string | null; path: string | null; createdAt: Date }) => ({
+      recentEvents: recentEvents.map((e) => ({
         id: e.id,
         name: e.name,
         category: e.category,
@@ -228,37 +277,53 @@ export class AnalyticsService {
         createdAt: e.createdAt,
       })),
     };
+
+    this.statsCache.set(safeDays, { at: Date.now(), data });
+    return data;
+  }
+
+  private async countDistinctVisitors(since: Date): Promise<number> {
+    const rows = await this.prisma.$queryRaw<Array<{ count: bigint | number }>>`
+      SELECT COUNT(DISTINCT visitor_id) AS count
+      FROM cms.page_views
+      WHERE created_at >= ${since}
+        AND visitor_id IS NOT NULL
+    `;
+    return Number(rows[0]?.count ?? 0);
   }
 
   /**
-   * Obtener vistas diarias
+   * Una sola query agrupada por día (antes: N counts secuenciales).
    */
-  private async getDailyViews(days: number) {
-    const result: Array<{ date: string; views: number }> = [];
-    
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      date.setHours(0, 0, 0, 0);
-      
-      const nextDate = new Date(date);
-      nextDate.setDate(nextDate.getDate() + 1);
+  private async getDailyViews(days: number, since: Date) {
+    const rows = await this.prisma.$queryRaw<
+      Array<{ day: Date | string; views: bigint | number }>
+    >`
+      SELECT (created_at AT TIME ZONE 'UTC')::date AS day,
+             COUNT(*)::int AS views
+      FROM cms.page_views
+      WHERE created_at >= ${since}
+      GROUP BY 1
+      ORDER BY 1
+    `;
 
-      const count = await this.prisma.pageView.count({
-        where: {
-          createdAt: {
-            gte: date,
-            lt: nextDate,
-          },
-        },
-      });
-
-      result.push({
-        date: date.toISOString().split('T')[0],
-        views: count,
-      });
+    const byDay = new Map<string, number>();
+    for (const row of rows) {
+      const key =
+        row.day instanceof Date
+          ? row.day.toISOString().slice(0, 10)
+          : String(row.day).slice(0, 10);
+      byDay.set(key, Number(row.views));
     }
 
+    const result: Array<{ date: string; views: number }> = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date();
+      date.setUTCHours(0, 0, 0, 0);
+      date.setUTCDate(date.getUTCDate() - i);
+      const key = date.toISOString().slice(0, 10);
+      result.push({ date: key, views: byDay.get(key) ?? 0 });
+    }
     return result;
   }
 

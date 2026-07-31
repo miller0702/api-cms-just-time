@@ -4,8 +4,8 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
-} from '@nestjs/common'
-import { PrismaService } from '../prisma/prisma.service'
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 import {
   ALL_PERMISSIONS,
   PERMISSION_CATALOG,
@@ -15,15 +15,15 @@ import {
   slugifyRoleName,
   systemRoleSeeds,
   type Permission,
-} from '../auth/permissions'
-import { CreateRoleDto, UpdateRoleDto } from './dto/upsert-role.dto'
+} from '../auth/permissions';
+import { CreateRoleDto, UpdateRoleDto } from './dto/upsert-role.dto';
 
 export type ActorCtx = {
-  userId: string
-  roleId: string
-  roleSlug: string
-  permissions: string[]
-}
+  userId: string;
+  roleId: string;
+  roleSlug: string;
+  permissions: string[];
+};
 
 const publicSelect = {
   id: true,
@@ -35,7 +35,7 @@ const publicSelect = {
   createdAt: true,
   updatedAt: true,
   _count: { select: { users: true } },
-} as const
+} as const;
 
 @Injectable()
 export class RolesService {
@@ -46,7 +46,7 @@ export class RolesService {
     for (const seed of systemRoleSeeds()) {
       const existing = await this.prisma.adminRoleDef.findUnique({
         where: { slug: seed.slug },
-      })
+      });
       if (!existing) {
         await this.prisma.adminRoleDef.create({
           data: {
@@ -56,52 +56,52 @@ export class RolesService {
             isSystem: true,
             permissions: seed.permissions,
           },
-        })
-        continue
+        });
+        continue;
       }
       // Mantén superadmin siempre con todos los permisos
       if (seed.slug === 'superadmin') {
         await this.prisma.adminRoleDef.update({
           where: { id: existing.id },
           data: { permissions: [...ALL_PERMISSIONS], isSystem: true },
-        })
+        });
       }
     }
   }
 
   async getBySlug(slug: string) {
-    return this.prisma.adminRoleDef.findUnique({ where: { slug } })
+    return this.prisma.adminRoleDef.findUnique({ where: { slug } });
   }
 
   catalog() {
     return {
       permissions: PERMISSION_CATALOG,
       all: ALL_PERMISSIONS,
-    }
+    };
   }
 
   list() {
     return this.prisma.adminRoleDef.findMany({
       select: publicSelect,
       orderBy: [{ isSystem: 'desc' }, { name: 'asc' }],
-    })
+    });
   }
 
   /** Roles que el actor puede asignar a usuarios. */
   async listAssignable(actor: ActorCtx) {
-    const roles = await this.list()
+    const roles = await this.list();
     return roles.filter((role) =>
       this.canAssignRole(actor, permissionsForRoleDef(role), role.slug),
-    )
+    );
   }
 
   async byId(id: string) {
     const role = await this.prisma.adminRoleDef.findUnique({
       where: { id },
       select: publicSelect,
-    })
-    if (!role) throw new NotFoundException('Rol no encontrado')
-    return role
+    });
+    if (!role) throw new NotFoundException('Rol no encontrado');
+    return role;
   }
 
   canAssignRole(
@@ -110,36 +110,38 @@ export class RolesService {
     targetSlug?: string,
   ) {
     if (targetSlug === 'superadmin' && actor.roleSlug !== 'superadmin') {
-      return false
+      return false;
     }
-    if (actor.roleSlug === 'superadmin') return true
-    return isPermissionsSubset(actor.permissions, targetPermissions)
+    if (actor.roleSlug === 'superadmin') return true;
+    return isPermissionsSubset(actor.permissions, targetPermissions);
   }
 
   async assertCanAssignRoleId(actor: ActorCtx, roleId: string) {
-    const role = await this.byId(roleId)
-    const perms = permissionsForRoleDef(role)
+    const role = await this.byId(roleId);
+    const perms = permissionsForRoleDef(role);
     if (!this.canAssignRole(actor, perms, role.slug)) {
-      throw new ForbiddenException('No puedes asignar ese rol')
+      throw new ForbiddenException('No puedes asignar ese rol');
     }
-    return role
+    return role;
   }
 
   async create(actor: ActorCtx, dto: CreateRoleDto) {
-    const permissions = sanitizePermissions(dto.permissions)
+    const permissions = sanitizePermissions(dto.permissions);
     if (!this.canAssignRole(actor, permissions)) {
       throw new ForbiddenException(
         'No puedes crear un rol con permisos superiores a los tuyos',
-      )
+      );
     }
-    const name = dto.name.trim()
-    let slug = slugifyRoleName(name)
-    const reserved = new Set(systemRoleSeeds().map((r) => r.slug))
-    if (reserved.has(slug)) slug = `${slug}-custom`
+    const name = dto.name.trim();
+    let slug = slugifyRoleName(name);
+    const reserved = new Set(systemRoleSeeds().map((r) => r.slug));
+    if (reserved.has(slug)) slug = `${slug}-custom`;
 
-    const clash = await this.prisma.adminRoleDef.findUnique({ where: { slug } })
+    const clash = await this.prisma.adminRoleDef.findUnique({
+      where: { slug },
+    });
     if (clash) {
-      slug = `${slug}-${Date.now().toString(36)}`
+      slug = `${slug}-${Date.now().toString(36)}`;
     }
 
     return this.prisma.adminRoleDef.create({
@@ -151,17 +153,17 @@ export class RolesService {
         permissions,
       },
       select: publicSelect,
-    })
+    });
   }
 
   async update(actor: ActorCtx, id: string, dto: UpdateRoleDto) {
-    const current = await this.byId(id)
+    const current = await this.byId(id);
 
     if (current.slug === 'superadmin') {
       if (dto.permissions) {
         throw new BadRequestException(
           'Los permisos del superadmin no se pueden modificar',
-        )
+        );
       }
       // Solo nombre/descripción cosméticos
       return this.prisma.adminRoleDef.update({
@@ -173,23 +175,25 @@ export class RolesService {
             : {}),
         },
         select: publicSelect,
-      })
+      });
     }
 
     const nextPermissions =
       dto.permissions !== undefined
         ? sanitizePermissions(dto.permissions)
-        : permissionsForRoleDef(current)
+        : permissionsForRoleDef(current);
 
     if (!this.canAssignRole(actor, nextPermissions, current.slug)) {
       throw new ForbiddenException(
         'No puedes asignar permisos superiores a los tuyos',
-      )
+      );
     }
 
     // Si el actor no es superadmin, solo puede editar roles que ya podía asignar
-    if (!this.canAssignRole(actor, permissionsForRoleDef(current), current.slug)) {
-      throw new ForbiddenException('No puedes editar este rol')
+    if (
+      !this.canAssignRole(actor, permissionsForRoleDef(current), current.slug)
+    ) {
+      throw new ForbiddenException('No puedes editar este rol');
     }
 
     return this.prisma.adminRoleDef.update({
@@ -204,23 +208,25 @@ export class RolesService {
           : {}),
       },
       select: publicSelect,
-    })
+    });
   }
 
   async remove(actor: ActorCtx, id: string) {
-    const current = await this.byId(id)
+    const current = await this.byId(id);
     if (current.isSystem) {
-      throw new BadRequestException('No se pueden eliminar roles del sistema')
+      throw new BadRequestException('No se pueden eliminar roles del sistema');
     }
-    if (!this.canAssignRole(actor, permissionsForRoleDef(current), current.slug)) {
-      throw new ForbiddenException('No puedes eliminar este rol')
+    if (
+      !this.canAssignRole(actor, permissionsForRoleDef(current), current.slug)
+    ) {
+      throw new ForbiddenException('No puedes eliminar este rol');
     }
     if (current._count.users > 0) {
       throw new ConflictException(
         'Reasigna o elimina los usuarios de este rol antes de borrarlo',
-      )
+      );
     }
-    await this.prisma.adminRoleDef.delete({ where: { id } })
-    return { ok: true }
+    await this.prisma.adminRoleDef.delete({ where: { id } });
+    return { ok: true };
   }
 }

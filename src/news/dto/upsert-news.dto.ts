@@ -13,6 +13,18 @@ export class UpsertNewsDto {
   @IsString()
   excerpt!: string;
 
+  @IsOptional()
+  @IsString()
+  seoTitle?: string | null;
+
+  @IsOptional()
+  @IsString()
+  seoDescription?: string | null;
+
+  @IsOptional()
+  @IsString()
+  seoImageUrl?: string | null;
+
   @IsString()
   body!: string;
 

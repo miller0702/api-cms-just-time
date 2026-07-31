@@ -168,10 +168,7 @@ export class EngagementController {
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions('comments.moderate')
   @Patch('admin/comments/:id')
-  moderate(
-    @Param('id') id: string,
-    @Body() body: { status: CommentStatus },
-  ) {
+  moderate(@Param('id') id: string, @Body() body: { status: CommentStatus }) {
     return this.engagement.moderateComment(id, body.status);
   }
 

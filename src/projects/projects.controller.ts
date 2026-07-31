@@ -3,17 +3,20 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   Param,
   Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import {
   PermissionsGuard,
   RequirePermissions,
 } from '../auth/permissions.guard';
 import { SetPublishStatusDto } from '../common/dto/set-publish-status.dto';
+import { CreateLotInquiryDto } from './dto/create-lot-inquiry.dto';
 import { UpsertProjectDto } from './dto/upsert-project.dto';
 import { ProjectsService } from './projects.service';
 
@@ -29,6 +32,31 @@ export class ProjectsController {
   @Get('sale-projects/:slug')
   bySlug(@Param('slug') slug: string) {
     return this.projects.bySlug(slug);
+  }
+
+  /** Inventario público ERP (vía vínculo erpProjectId). */
+  @Get('sale-projects/:slug/lots')
+  erpLots(@Param('slug') slug: string) {
+    return this.projects.getErpLots(slug);
+  }
+
+  /** Mapa SVG publicado en ERP. */
+  @Get('sale-projects/:slug/map')
+  erpMap(@Param('slug') slug: string) {
+    return this.projects.getErpMap(slug);
+  }
+
+  /** Lead de lote → ERP LotInterest. */
+  @Post('sale-projects/:slug/lots/:lotId/interests')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 6, ttl: 60_000 } })
+  lotInquiry(
+    @Param('slug') slug: string,
+    @Param('lotId') lotId: string,
+    @Body() dto: CreateLotInquiryDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ) {
+    return this.projects.createLotInquiry(slug, lotId, dto, idempotencyKey);
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)

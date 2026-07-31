@@ -1,5 +1,6 @@
 import { Module, OnModuleInit } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
 import * as bcrypt from 'bcrypt';
 import { PublishStatus, ServiceLine, Prisma } from '@prisma/client';
 import { PrismaModule } from './prisma/prisma.module';
@@ -19,12 +20,19 @@ import { RolesModule } from './roles/roles.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AiModule } from './ai/ai.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { SeoModule } from './seo/seo.module';
 import { RolesService } from './roles/roles.service';
 import { systemRoleSeeds } from './auth/permissions';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60_000,
+        limit: 30,
+      },
+    ]),
     PrismaModule,
     AuthModule,
     NewsModule,
@@ -41,6 +49,7 @@ import { systemRoleSeeds } from './auth/permissions';
     NotificationsModule,
     AiModule,
     AnalyticsModule,
+    SeoModule,
   ],
 })
 export class AppModule implements OnModuleInit {
@@ -61,7 +70,9 @@ export class AppModule implements OnModuleInit {
   private async seed() {
     await this.roles.ensureSystemRoles();
 
-    const email = (process.env.ADMIN_EMAIL ?? 'admin@justtime.co').toLowerCase();
+    const email = (
+      process.env.ADMIN_EMAIL ?? 'admin@justtime.co'
+    ).toLowerCase();
     const superRole = await this.roles.getBySlug('superadmin');
     if (!superRole) {
       throw new Error('[seed] Rol superadmin no encontrado');
@@ -163,11 +174,36 @@ export class AppModule implements OnModuleInit {
               ctaLabel: 'Cotizar ahora',
               ctaHref: '/contacto',
               items: [
-                { id: 'nav-urbanismo', label: 'Urbanismo', href: '/urbanismo', icon: 'building' },
-                { id: 'nav-hidrocarburos', label: 'Hidrocarburos', href: '/hidrocarburos', icon: 'energy' },
-                { id: 'nav-proyectos', label: 'Proyectos', href: '/proyectos', icon: 'projects' },
-                { id: 'nav-nosotros', label: 'Sobre nosotros', href: '/nosotros', icon: 'team' },
-                { id: 'nav-contacto', label: 'Contacto', href: '/contacto', icon: 'mail' },
+                {
+                  id: 'nav-urbanismo',
+                  label: 'Urbanismo',
+                  href: '/urbanismo',
+                  icon: 'building',
+                },
+                {
+                  id: 'nav-hidrocarburos',
+                  label: 'Hidrocarburos',
+                  href: '/hidrocarburos',
+                  icon: 'energy',
+                },
+                {
+                  id: 'nav-proyectos',
+                  label: 'Proyectos',
+                  href: '/proyectos',
+                  icon: 'projects',
+                },
+                {
+                  id: 'nav-nosotros',
+                  label: 'Sobre nosotros',
+                  href: '/nosotros',
+                  icon: 'team',
+                },
+                {
+                  id: 'nav-contacto',
+                  label: 'Contacto',
+                  href: '/contacto',
+                  icon: 'mail',
+                },
               ],
             },
           },
@@ -175,9 +211,17 @@ export class AppModule implements OnModuleInit {
             key: 'social',
             value: {
               items: [
-                { id: 'whatsapp', href: 'https://wa.me/573176073815', enabled: true },
+                {
+                  id: 'whatsapp',
+                  href: 'https://wa.me/573176073815',
+                  enabled: true,
+                },
                 { id: 'facebook', href: 'https://facebook.com', enabled: true },
-                { id: 'instagram', href: 'https://instagram.com', enabled: true },
+                {
+                  id: 'instagram',
+                  href: 'https://instagram.com',
+                  enabled: true,
+                },
                 { id: 'linkedin', href: 'https://linkedin.com', enabled: true },
                 { id: 'tiktok', href: 'https://tiktok.com', enabled: true },
               ],
@@ -193,11 +237,31 @@ export class AppModule implements OnModuleInit {
                   seeAllLabel: 'Ver todos →',
                   seeAllHref: '/hidrocarburos',
                   links: [
-                    { id: 'h1', label: 'Maquinaria Amarilla', href: '/servicios/maquinaria-amarilla' },
-                    { id: 'h2', label: 'Transporte de Carga', href: '/servicios/transporte-carga' },
-                    { id: 'h3', label: 'Izaje de Carga', href: '/servicios/izaje-carga' },
-                    { id: 'h4', label: 'Bomba Triplex', href: '/servicios/bomba-triplex' },
-                    { id: 'h5', label: 'Camión de Vacío', href: '/servicios/camion-vacio' },
+                    {
+                      id: 'h1',
+                      label: 'Maquinaria Amarilla',
+                      href: '/servicios/maquinaria-amarilla',
+                    },
+                    {
+                      id: 'h2',
+                      label: 'Transporte de Carga',
+                      href: '/servicios/transporte-carga',
+                    },
+                    {
+                      id: 'h3',
+                      label: 'Izaje de Carga',
+                      href: '/servicios/izaje-carga',
+                    },
+                    {
+                      id: 'h4',
+                      label: 'Bomba Triplex',
+                      href: '/servicios/bomba-triplex',
+                    },
+                    {
+                      id: 'h5',
+                      label: 'Camión de Vacío',
+                      href: '/servicios/camion-vacio',
+                    },
                   ],
                 },
                 {
@@ -206,11 +270,31 @@ export class AppModule implements OnModuleInit {
                   seeAllLabel: 'Ver todos →',
                   seeAllHref: '/urbanismo',
                   links: [
-                    { id: 'u1', label: 'Obras Civiles', href: '/servicios/obras-civiles' },
-                    { id: 'u2', label: 'Topografía', href: '/servicios/topografia' },
-                    { id: 'u3', label: 'Diseño Arquitectónico', href: '/servicios/diseno-arquitectonico' },
-                    { id: 'u4', label: 'Desarrollo de Vías', href: '/servicios/desarrollo-vias' },
-                    { id: 'u5', label: 'Fotogrametría', href: '/servicios/fotogrametria' },
+                    {
+                      id: 'u1',
+                      label: 'Obras Civiles',
+                      href: '/servicios/obras-civiles',
+                    },
+                    {
+                      id: 'u2',
+                      label: 'Topografía',
+                      href: '/servicios/topografia',
+                    },
+                    {
+                      id: 'u3',
+                      label: 'Diseño Arquitectónico',
+                      href: '/servicios/diseno-arquitectonico',
+                    },
+                    {
+                      id: 'u4',
+                      label: 'Desarrollo de Vías',
+                      href: '/servicios/desarrollo-vias',
+                    },
+                    {
+                      id: 'u5',
+                      label: 'Fotogrametría',
+                      href: '/servicios/fotogrametria',
+                    },
                   ],
                 },
                 {
@@ -219,10 +303,26 @@ export class AppModule implements OnModuleInit {
                   seeAllLabel: 'Ver proyectos →',
                   seeAllHref: '/proyectos',
                   links: [
-                    { id: 'p1', label: 'Magno Country Club', href: '/proyectos/magno-country-club' },
-                    { id: 'p2', label: 'El Poblado', href: '/proyectos/el-poblado' },
-                    { id: 'p3', label: 'Industrial Park', href: '/proyectos/industrial-park' },
-                    { id: 'p4', label: 'Time Country Club', href: '/proyectos/time-country-club' },
+                    {
+                      id: 'p1',
+                      label: 'Magno Country Club',
+                      href: '/proyectos/magno-country-club',
+                    },
+                    {
+                      id: 'p2',
+                      label: 'El Poblado',
+                      href: '/proyectos/el-poblado',
+                    },
+                    {
+                      id: 'p3',
+                      label: 'Industrial Park',
+                      href: '/proyectos/industrial-park',
+                    },
+                    {
+                      id: 'p4',
+                      label: 'Time Country Club',
+                      href: '/proyectos/time-country-club',
+                    },
                   ],
                 },
               ],
@@ -232,10 +332,30 @@ export class AppModule implements OnModuleInit {
             key: 'certifications',
             value: {
               items: [
-                { id: 'iso-9001', name: 'ISO 9001', logoUrl: null, alt: 'ISO 9001' },
-                { id: 'iso-14001', name: 'ISO 14001', logoUrl: null, alt: 'ISO 14001' },
-                { id: 'iso-45001', name: 'ISO 45001', logoUrl: null, alt: 'ISO 45001' },
-                { id: 'norsok', name: 'Norsok S-006', logoUrl: null, alt: 'Norsok S-006' },
+                {
+                  id: 'iso-9001',
+                  name: 'ISO 9001',
+                  logoUrl: null,
+                  alt: 'ISO 9001',
+                },
+                {
+                  id: 'iso-14001',
+                  name: 'ISO 14001',
+                  logoUrl: null,
+                  alt: 'ISO 14001',
+                },
+                {
+                  id: 'iso-45001',
+                  name: 'ISO 45001',
+                  logoUrl: null,
+                  alt: 'ISO 45001',
+                },
+                {
+                  id: 'norsok',
+                  name: 'Norsok S-006',
+                  logoUrl: null,
+                  alt: 'Norsok S-006',
+                },
               ],
             },
           },
@@ -270,10 +390,30 @@ export class AppModule implements OnModuleInit {
             key: 'certifications',
             value: {
               items: [
-                { id: 'iso-9001', name: 'ISO 9001', logoUrl: null, alt: 'ISO 9001' },
-                { id: 'iso-14001', name: 'ISO 14001', logoUrl: null, alt: 'ISO 14001' },
-                { id: 'iso-45001', name: 'ISO 45001', logoUrl: null, alt: 'ISO 45001' },
-                { id: 'norsok', name: 'Norsok S-006', logoUrl: null, alt: 'Norsok S-006' },
+                {
+                  id: 'iso-9001',
+                  name: 'ISO 9001',
+                  logoUrl: null,
+                  alt: 'ISO 9001',
+                },
+                {
+                  id: 'iso-14001',
+                  name: 'ISO 14001',
+                  logoUrl: null,
+                  alt: 'ISO 14001',
+                },
+                {
+                  id: 'iso-45001',
+                  name: 'ISO 45001',
+                  logoUrl: null,
+                  alt: 'ISO 45001',
+                },
+                {
+                  id: 'norsok',
+                  name: 'Norsok S-006',
+                  logoUrl: null,
+                  alt: 'Norsok S-006',
+                },
               ],
             },
           },
@@ -310,11 +450,36 @@ export class AppModule implements OnModuleInit {
               ctaLabel: 'Cotizar ahora',
               ctaHref: '/contacto',
               items: [
-                { id: 'nav-urbanismo', label: 'Urbanismo', href: '/urbanismo', icon: 'building' },
-                { id: 'nav-hidrocarburos', label: 'Hidrocarburos', href: '/hidrocarburos', icon: 'energy' },
-                { id: 'nav-proyectos', label: 'Proyectos', href: '/proyectos', icon: 'projects' },
-                { id: 'nav-nosotros', label: 'Sobre nosotros', href: '/nosotros', icon: 'team' },
-                { id: 'nav-contacto', label: 'Contacto', href: '/contacto', icon: 'mail' },
+                {
+                  id: 'nav-urbanismo',
+                  label: 'Urbanismo',
+                  href: '/urbanismo',
+                  icon: 'building',
+                },
+                {
+                  id: 'nav-hidrocarburos',
+                  label: 'Hidrocarburos',
+                  href: '/hidrocarburos',
+                  icon: 'energy',
+                },
+                {
+                  id: 'nav-proyectos',
+                  label: 'Proyectos',
+                  href: '/proyectos',
+                  icon: 'projects',
+                },
+                {
+                  id: 'nav-nosotros',
+                  label: 'Sobre nosotros',
+                  href: '/nosotros',
+                  icon: 'team',
+                },
+                {
+                  id: 'nav-contacto',
+                  label: 'Contacto',
+                  href: '/contacto',
+                  icon: 'mail',
+                },
               ],
             },
           },
@@ -329,9 +494,17 @@ export class AppModule implements OnModuleInit {
             key: 'social',
             value: {
               items: [
-                { id: 'whatsapp', href: 'https://wa.me/573176073815', enabled: true },
+                {
+                  id: 'whatsapp',
+                  href: 'https://wa.me/573176073815',
+                  enabled: true,
+                },
                 { id: 'facebook', href: 'https://facebook.com', enabled: true },
-                { id: 'instagram', href: 'https://instagram.com', enabled: true },
+                {
+                  id: 'instagram',
+                  href: 'https://instagram.com',
+                  enabled: true,
+                },
                 { id: 'linkedin', href: 'https://linkedin.com', enabled: true },
                 { id: 'tiktok', href: 'https://tiktok.com', enabled: true },
               ],
@@ -354,11 +527,31 @@ export class AppModule implements OnModuleInit {
                   seeAllLabel: 'Ver todos →',
                   seeAllHref: '/hidrocarburos',
                   links: [
-                    { id: 'h1', label: 'Maquinaria Amarilla', href: '/servicios/maquinaria-amarilla' },
-                    { id: 'h2', label: 'Transporte de Carga', href: '/servicios/transporte-carga' },
-                    { id: 'h3', label: 'Izaje de Carga', href: '/servicios/izaje-carga' },
-                    { id: 'h4', label: 'Bomba Triplex', href: '/servicios/bomba-triplex' },
-                    { id: 'h5', label: 'Camión de Vacío', href: '/servicios/camion-vacio' },
+                    {
+                      id: 'h1',
+                      label: 'Maquinaria Amarilla',
+                      href: '/servicios/maquinaria-amarilla',
+                    },
+                    {
+                      id: 'h2',
+                      label: 'Transporte de Carga',
+                      href: '/servicios/transporte-carga',
+                    },
+                    {
+                      id: 'h3',
+                      label: 'Izaje de Carga',
+                      href: '/servicios/izaje-carga',
+                    },
+                    {
+                      id: 'h4',
+                      label: 'Bomba Triplex',
+                      href: '/servicios/bomba-triplex',
+                    },
+                    {
+                      id: 'h5',
+                      label: 'Camión de Vacío',
+                      href: '/servicios/camion-vacio',
+                    },
                   ],
                 },
                 {
@@ -367,11 +560,31 @@ export class AppModule implements OnModuleInit {
                   seeAllLabel: 'Ver todos →',
                   seeAllHref: '/urbanismo',
                   links: [
-                    { id: 'u1', label: 'Obras Civiles', href: '/servicios/obras-civiles' },
-                    { id: 'u2', label: 'Topografía', href: '/servicios/topografia' },
-                    { id: 'u3', label: 'Diseño Arquitectónico', href: '/servicios/diseno-arquitectonico' },
-                    { id: 'u4', label: 'Desarrollo de Vías', href: '/servicios/desarrollo-vias' },
-                    { id: 'u5', label: 'Fotogrametría', href: '/servicios/fotogrametria' },
+                    {
+                      id: 'u1',
+                      label: 'Obras Civiles',
+                      href: '/servicios/obras-civiles',
+                    },
+                    {
+                      id: 'u2',
+                      label: 'Topografía',
+                      href: '/servicios/topografia',
+                    },
+                    {
+                      id: 'u3',
+                      label: 'Diseño Arquitectónico',
+                      href: '/servicios/diseno-arquitectonico',
+                    },
+                    {
+                      id: 'u4',
+                      label: 'Desarrollo de Vías',
+                      href: '/servicios/desarrollo-vias',
+                    },
+                    {
+                      id: 'u5',
+                      label: 'Fotogrametría',
+                      href: '/servicios/fotogrametria',
+                    },
                   ],
                 },
                 {
@@ -380,10 +593,26 @@ export class AppModule implements OnModuleInit {
                   seeAllLabel: 'Ver proyectos →',
                   seeAllHref: '/proyectos',
                   links: [
-                    { id: 'p1', label: 'Magno Country Club', href: '/proyectos/magno-country-club' },
-                    { id: 'p2', label: 'El Poblado', href: '/proyectos/el-poblado' },
-                    { id: 'p3', label: 'Industrial Park', href: '/proyectos/industrial-park' },
-                    { id: 'p4', label: 'Time Country Club', href: '/proyectos/time-country-club' },
+                    {
+                      id: 'p1',
+                      label: 'Magno Country Club',
+                      href: '/proyectos/magno-country-club',
+                    },
+                    {
+                      id: 'p2',
+                      label: 'El Poblado',
+                      href: '/proyectos/el-poblado',
+                    },
+                    {
+                      id: 'p3',
+                      label: 'Industrial Park',
+                      href: '/proyectos/industrial-park',
+                    },
+                    {
+                      id: 'p4',
+                      label: 'Time Country Club',
+                      href: '/proyectos/time-country-club',
+                    },
                   ],
                 },
               ],
@@ -574,7 +803,11 @@ export class AppModule implements OnModuleInit {
       slug: string;
       title: string;
       seo: string;
-      blocks: Array<{ type: string; sortOrder: number; payload: Record<string, unknown> }>;
+      blocks: Array<{
+        type: string;
+        sortOrder: number;
+        payload: Record<string, unknown>;
+      }>;
     }> = [
       {
         slug: 'urbanismo',
@@ -599,7 +832,11 @@ export class AppModule implements OnModuleInit {
           {
             type: 'serviceGrid',
             sortOrder: 1,
-            payload: { title: 'Servicios de urbanismo', line: 'urbanismo', limit: 12 },
+            payload: {
+              title: 'Servicios de urbanismo',
+              line: 'urbanismo',
+              limit: 12,
+            },
           },
         ],
       },
@@ -707,7 +944,9 @@ export class AppModule implements OnModuleInit {
     ];
 
     for (const page of sitePages) {
-      const exists = await this.prisma.page.findUnique({ where: { slug: page.slug } });
+      const exists = await this.prisma.page.findUnique({
+        where: { slug: page.slug },
+      });
       if (!exists) {
         await this.prisma.page.create({
           data: {
@@ -726,23 +965,88 @@ export class AppModule implements OnModuleInit {
 
     if ((await this.prisma.service.count()) === 0) {
       const urbanismo = [
-        ['obras-civiles', 'Obras Civiles', 'Urbanizaciones, redes, movimiento de tierras y cimentaciones.', ['Movimiento de tierras', 'Urbanizaciones', 'Redes', 'Cimentaciones']],
-        ['topografia', 'Topografía', 'Levantamientos, replanteo, curvas de nivel y cartografía digital.', ['Levantamientos', 'Replanteo', 'Curvas de nivel', 'Cartografía']],
-        ['diseno-arquitectonico', 'Diseño Arquitectónico', 'Planos, implantación, renders 3D y gestión de licencias.', ['Planos', 'Renders 3D', 'Licencias', 'Implantación']],
-        ['desarrollo-vias', 'Desarrollo de Vías', 'Vías internas, pavimentación, accesos y señalización.', ['Vías internas', 'Pavimentación', 'Accesos', 'Señalización']],
-        ['fotogrametria', 'Fotogrametría', 'Modelos 3D y mapas 2D de alta precisión con drone.', ['Modelos 3D', 'Mapas 2D', 'Drone', 'Alta precisión']],
+        [
+          'obras-civiles',
+          'Obras Civiles',
+          'Urbanizaciones, redes, movimiento de tierras y cimentaciones.',
+          ['Movimiento de tierras', 'Urbanizaciones', 'Redes', 'Cimentaciones'],
+        ],
+        [
+          'topografia',
+          'Topografía',
+          'Levantamientos, replanteo, curvas de nivel y cartografía digital.',
+          ['Levantamientos', 'Replanteo', 'Curvas de nivel', 'Cartografía'],
+        ],
+        [
+          'diseno-arquitectonico',
+          'Diseño Arquitectónico',
+          'Planos, implantación, renders 3D y gestión de licencias.',
+          ['Planos', 'Renders 3D', 'Licencias', 'Implantación'],
+        ],
+        [
+          'desarrollo-vias',
+          'Desarrollo de Vías',
+          'Vías internas, pavimentación, accesos y señalización.',
+          ['Vías internas', 'Pavimentación', 'Accesos', 'Señalización'],
+        ],
+        [
+          'fotogrametria',
+          'Fotogrametría',
+          'Modelos 3D y mapas 2D de alta precisión con drone.',
+          ['Modelos 3D', 'Mapas 2D', 'Drone', 'Alta precisión'],
+        ],
       ] as const;
       const hidro = [
-        ['maquinaria-amarilla', 'Maquinaria Amarilla', 'Suministro y alquiler de maquinaria pesada certificada.'],
-        ['equipos-vias', 'Equipos para Vías', 'Apertura, mejoramiento y mantenimiento de vías.'],
-        ['transporte-carga', 'Transporte de Carga', 'Logística de carga líquida y seca.'],
-        ['izaje-carga', 'Izaje de Carga', 'Izaje especializado con personal certificado.'],
-        ['disposicion-residuos', 'Disposición de Residuos', 'Gestión bajo normativa ambiental ISO 14001.'],
-        ['lavado-tanques', 'Lavado de Tanques', 'Limpieza de tanques y piscinas industriales.'],
-        ['bomba-triplex', 'Bomba Triplex', 'Alta presión, cementación e hidroblasting.'],
-        ['camion-vacio', 'Camión de Vacío', 'Succión y transporte de lodos y residuos líquidos.'],
-        ['servicios-especializados', 'Servicios Especializados', 'Flashing, cama alta, cargador, minicargador, manlift.'],
-        ['topografia-drone', 'Servicio de Topografía', 'Mediciones con Drone y RTK.'],
+        [
+          'maquinaria-amarilla',
+          'Maquinaria Amarilla',
+          'Suministro y alquiler de maquinaria pesada certificada.',
+        ],
+        [
+          'equipos-vias',
+          'Equipos para Vías',
+          'Apertura, mejoramiento y mantenimiento de vías.',
+        ],
+        [
+          'transporte-carga',
+          'Transporte de Carga',
+          'Logística de carga líquida y seca.',
+        ],
+        [
+          'izaje-carga',
+          'Izaje de Carga',
+          'Izaje especializado con personal certificado.',
+        ],
+        [
+          'disposicion-residuos',
+          'Disposición de Residuos',
+          'Gestión bajo normativa ambiental ISO 14001.',
+        ],
+        [
+          'lavado-tanques',
+          'Lavado de Tanques',
+          'Limpieza de tanques y piscinas industriales.',
+        ],
+        [
+          'bomba-triplex',
+          'Bomba Triplex',
+          'Alta presión, cementación e hidroblasting.',
+        ],
+        [
+          'camion-vacio',
+          'Camión de Vacío',
+          'Succión y transporte de lodos y residuos líquidos.',
+        ],
+        [
+          'servicios-especializados',
+          'Servicios Especializados',
+          'Flashing, cama alta, cargador, minicargador, manlift.',
+        ],
+        [
+          'topografia-drone',
+          'Servicio de Topografía',
+          'Mediciones con Drone y RTK.',
+        ],
       ] as const;
 
       let order = 0;
@@ -789,7 +1093,12 @@ export class AppModule implements OnModuleInit {
           summary:
             'Desarrollo urbanístico exclusivo con concepto de club campestre.',
           badges: ['Disponible'],
-          tags: ['Zonas verdes', 'Club campestre', 'Residencial', 'Alta valorización'],
+          tags: [
+            'Zonas verdes',
+            'Club campestre',
+            'Residencial',
+            'Alta valorización',
+          ],
           priceFromCop: 60000000,
         },
         {
@@ -800,7 +1109,12 @@ export class AppModule implements OnModuleInit {
           summary:
             'Desarrollo residencial y comercial con infraestructura completa.',
           badges: ['Disponible'],
-          tags: ['Residencial', 'Comercial', 'Acceso vial', 'Servicios completos'],
+          tags: [
+            'Residencial',
+            'Comercial',
+            'Acceso vial',
+            'Servicios completos',
+          ],
           priceFromCop: 38000000,
         },
         {
@@ -808,8 +1122,7 @@ export class AppModule implements OnModuleInit {
           name: 'Industrial Park',
           locationCity: 'San Alberto',
           locationDept: 'Cesar',
-          summary:
-            'Zona industrial para bodegas, plantas y logística.',
+          summary: 'Zona industrial para bodegas, plantas y logística.',
           badges: ['New'],
           tags: ['Uso industrial', 'Bodegas', 'Logística', 'Infraestructura'],
           priceFromCop: 58000000,

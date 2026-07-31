@@ -24,6 +24,9 @@ export class PillsService {
         title: true,
         summary: true,
         category: true,
+        seoTitle: true,
+        seoDescription: true,
+        seoImageUrl: true,
         status: true,
         coverMediaId: true,
         publishedAt: true,
@@ -77,10 +80,12 @@ export class PillsService {
     return this.prisma.pill.create({
       data: {
         ...dto,
+        seoTitle: dto.seoTitle || null,
+        seoDescription: dto.seoDescription || null,
+        seoImageUrl: dto.seoImageUrl || null,
         category: dto.category || null,
         coverMediaId: dto.coverMediaId || null,
-        publishedAt:
-          dto.status === PublishStatus.published ? new Date() : null,
+        publishedAt: dto.status === PublishStatus.published ? new Date() : null,
       },
       include: { coverMedia: true },
     });
@@ -92,6 +97,9 @@ export class PillsService {
       where: { id },
       data: {
         ...dto,
+        seoTitle: dto.seoTitle || null,
+        seoDescription: dto.seoDescription || null,
+        seoImageUrl: dto.seoImageUrl || null,
         category: dto.category || null,
         coverMediaId: dto.coverMediaId || null,
         publishedAt:

@@ -117,7 +117,9 @@ model Page {
   id             String        @id @default(uuid())
   slug           String        @unique
   title          String
+  seoTitle       String?       @map("seo_title")
   seoDescription String?       @map("seo_description")
+  seoImageUrl    String?       @map("seo_image_url")
   status         PublishStatus @default(draft)
   publishedAt    DateTime?     @map("published_at")
   createdAt      DateTime      @default(now()) @map("created_at")
@@ -143,96 +145,114 @@ model PageBlock {
 }
 
 model Service {
-  id          String        @id @default(uuid())
-  line        ServiceLine
-  slug        String        @unique
-  title       String
-  summary     String
-  body        String        @db.Text
-  tags        String[]      @default([])
-  sortOrder   Int           @default(0) @map("sort_order")
-  status      PublishStatus @default(draft)
-  mediaId     String?       @map("media_id")
-  /** Galería: [{ id, mediaId, url, alt?, caption?, size, sortOrder }] */
-  gallery     Json          @default("[]")
-  publishedAt DateTime?     @map("published_at")
-  createdAt   DateTime      @default(now()) @map("created_at")
-  updatedAt   DateTime      @updatedAt @map("updated_at")
-  media       MediaAsset?   @relation("ServiceMedia", fields: [mediaId], references: [id])
+  id             String        @id @default(uuid())
+  line           ServiceLine
+  slug           String        @unique
+  title          String
+  summary        String
+  seoTitle       String?       @map("seo_title")
+  seoDescription String?       @map("seo_description")
+  seoImageUrl    String?       @map("seo_image_url")
+  body           String        @db.Text
+  tags           String[]      @default([])
+  sortOrder      Int           @default(0) @map("sort_order")
+  status         PublishStatus @default(draft)
+  mediaId        String?       @map("media_id")
+  /**
+   * Galería: [{ id, mediaId, url, alt?, caption?, size, sortOrder }]
+   */
+  gallery        Json          @default("[]")
+  publishedAt    DateTime?     @map("published_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  media          MediaAsset?   @relation("ServiceMedia", fields: [mediaId], references: [id])
 
   @@map("services")
   @@schema("cms")
 }
 
 model SaleProject {
-  id            String        @id @default(uuid())
-  slug          String        @unique
-  name          String
-  locationCity  String        @map("location_city")
-  locationDept  String        @map("location_dept")
-  summary       String
-  body          String        @db.Text
-  badges        String[]      @default([])
-  tags          String[]      @default([])
-  priceFromCop  Decimal       @map("price_from_cop") @db.Decimal(14, 2)
-  erpProjectId  String?       @map("erp_project_id")
-  coverMediaId  String?       @map("cover_media_id")
-  logoMediaId   String?       @map("logo_media_id")
-  bannerMediaId String?       @map("banner_media_id")
-  /** Galería: [{ id, mediaId, url, alt?, caption?, size, sortOrder }] */
-  gallery       Json          @default("[]")
-  /** URL del brochure/PDF del proyecto */
-  brochureUrl   String?       @map("brochure_url")
-  status        PublishStatus @default(draft)
-  publishedAt   DateTime?     @map("published_at")
-  createdAt     DateTime      @default(now()) @map("created_at")
-  updatedAt     DateTime      @updatedAt @map("updated_at")
-  coverMedia    MediaAsset?   @relation("ProjectCover", fields: [coverMediaId], references: [id])
-  logoMedia     MediaAsset?   @relation("ProjectLogo", fields: [logoMediaId], references: [id])
-  bannerMedia   MediaAsset?   @relation("ProjectBanner", fields: [bannerMediaId], references: [id])
+  id             String        @id @default(uuid())
+  slug           String        @unique
+  name           String
+  locationCity   String        @map("location_city")
+  locationDept   String        @map("location_dept")
+  summary        String
+  seoTitle       String?       @map("seo_title")
+  seoDescription String?       @map("seo_description")
+  seoImageUrl    String?       @map("seo_image_url")
+  body           String        @db.Text
+  badges         String[]      @default([])
+  tags           String[]      @default([])
+  priceFromCop   Decimal       @map("price_from_cop") @db.Decimal(14, 2)
+  erpProjectId   String?       @map("erp_project_id")
+  coverMediaId   String?       @map("cover_media_id")
+  logoMediaId    String?       @map("logo_media_id")
+  bannerMediaId  String?       @map("banner_media_id")
+  /**
+   * Galería: [{ id, mediaId, url, alt?, caption?, size, sortOrder }]
+   */
+  gallery        Json          @default("[]")
+  /**
+   * URL del brochure/PDF del proyecto
+   */
+  brochureUrl    String?       @map("brochure_url")
+  status         PublishStatus @default(draft)
+  publishedAt    DateTime?     @map("published_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  coverMedia     MediaAsset?   @relation("ProjectCover", fields: [coverMediaId], references: [id])
+  logoMedia      MediaAsset?   @relation("ProjectLogo", fields: [logoMediaId], references: [id])
+  bannerMedia    MediaAsset?   @relation("ProjectBanner", fields: [bannerMediaId], references: [id])
 
   @@map("sale_projects")
   @@schema("cms")
 }
 
 model News {
-  id           String        @id @default(uuid())
-  slug         String        @unique
-  title        String
-  excerpt      String
-  body         String        @db.Text
-  coverMediaId String?       @map("cover_media_id")
-  status       PublishStatus @default(draft)
-  publishedAt  DateTime?     @map("published_at")
-  viewCount    Int           @default(0) @map("view_count")
-  likeCount    Int           @default(0) @map("like_count")
-  shareCount   Int           @default(0) @map("share_count")
-  commentCount Int           @default(0) @map("comment_count")
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
-  coverMedia   MediaAsset?   @relation("NewsCover", fields: [coverMediaId], references: [id])
+  id             String        @id @default(uuid())
+  slug           String        @unique
+  title          String
+  excerpt        String
+  seoTitle       String?       @map("seo_title")
+  seoDescription String?       @map("seo_description")
+  seoImageUrl    String?       @map("seo_image_url")
+  body           String        @db.Text
+  coverMediaId   String?       @map("cover_media_id")
+  status         PublishStatus @default(draft)
+  publishedAt    DateTime?     @map("published_at")
+  viewCount      Int           @default(0) @map("view_count")
+  likeCount      Int           @default(0) @map("like_count")
+  shareCount     Int           @default(0) @map("share_count")
+  commentCount   Int           @default(0) @map("comment_count")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  coverMedia     MediaAsset?   @relation("NewsCover", fields: [coverMediaId], references: [id])
 
   @@map("news")
   @@schema("cms")
 }
 
 model Pill {
-  id           String        @id @default(uuid())
-  slug         String        @unique
-  title        String
-  summary      String
-  body         String        @db.Text
-  category     String?
-  coverMediaId String?       @map("cover_media_id")
-  status       PublishStatus @default(draft)
-  publishedAt  DateTime?     @map("published_at")
-  viewCount    Int           @default(0) @map("view_count")
-  likeCount    Int           @default(0) @map("like_count")
-  shareCount   Int           @default(0) @map("share_count")
-  commentCount Int           @default(0) @map("comment_count")
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
-  coverMedia   MediaAsset?   @relation("PillCover", fields: [coverMediaId], references: [id])
+  id             String        @id @default(uuid())
+  slug           String        @unique
+  title          String
+  summary        String
+  seoTitle       String?       @map("seo_title")
+  seoDescription String?       @map("seo_description")
+  seoImageUrl    String?       @map("seo_image_url")
+  body           String        @db.Text
+  category       String?
+  coverMediaId   String?       @map("cover_media_id")
+  status         PublishStatus @default(draft)
+  publishedAt    DateTime?     @map("published_at")
+  viewCount      Int           @default(0) @map("view_count")
+  likeCount      Int           @default(0) @map("like_count")
+  shareCount     Int           @default(0) @map("share_count")
+  commentCount   Int           @default(0) @map("comment_count")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  coverMedia     MediaAsset?   @relation("PillCover", fields: [coverMediaId], references: [id])
 
   @@map("pills")
   @@schema("cms")
@@ -272,20 +292,31 @@ model ContentComment {
 }
 
 model Lead {
-  id            String   @id @default(uuid())
-  name          String
-  email         String
-  phone         String?
-  company       String?
-  message       String   @db.Text
-  source        String   @default("website")
-  businessLine  String?  @map("business_line")
-  serviceSlug   String?  @map("service_slug")
-  projectSlug   String?  @map("project_slug")
-  lotCode       String?  @map("lot_code")
-  status        String   @default("new")
-  createdAt     DateTime @default(now()) @map("created_at")
+  id           String   @id @default(uuid())
+  name         String
+  email        String
+  phone        String?
+  company      String?
+  message      String   @db.Text
+  source       String   @default("website")
+  /**
+   * contact | pqrs | fleet | lot_inquiry
+   */
+  kind         String   @default("contact")
+  pqrsType     String?  @map("pqrs_type")
+  document     String?
+  municipality String?
+  subject      String?
+  consent      Boolean  @default(false)
+  trackingCode String?  @unique @map("tracking_code")
+  businessLine String?  @map("business_line")
+  serviceSlug  String?  @map("service_slug")
+  projectSlug  String?  @map("project_slug")
+  lotCode      String?  @map("lot_code")
+  status       String   @default("new")
+  createdAt    DateTime @default(now()) @map("created_at")
 
+  @@index([kind, status])
   @@map("leads")
   @@schema("cms")
 }
@@ -303,19 +334,19 @@ model SiteSetting {
 // =============== ANALYTICS ===============
 
 model PageView {
-  id         String   @id @default(uuid())
-  path       String
-  referrer   String?
-  userAgent  String?  @map("user_agent")
-  ip         String?
-  country    String?
-  city       String?
-  device     String?  // mobile, tablet, desktop
-  browser    String?
-  os         String?
-  sessionId  String?  @map("session_id")
-  visitorId  String?  @map("visitor_id")
-  createdAt  DateTime @default(now()) @map("created_at")
+  id        String   @id @default(uuid())
+  path      String
+  referrer  String?
+  userAgent String?  @map("user_agent")
+  ip        String?
+  country   String?
+  city      String?
+  device    String? // mobile, tablet, desktop
+  browser   String?
+  os        String?
+  sessionId String?  @map("session_id")
+  visitorId String?  @map("visitor_id")
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@index([path])
   @@index([createdAt])
@@ -327,17 +358,17 @@ model PageView {
 }
 
 model AnalyticsEvent {
-  id         String   @id @default(uuid())
-  name       String   // click, scroll, form_submit, etc.
-  category   String?  // navigation, engagement, conversion
-  label      String?  // button text, link href, etc.
-  value      Int?     // numeric value if applicable
-  path       String?
-  ip         String?
-  sessionId  String?  @map("session_id")
-  visitorId  String?  @map("visitor_id")
-  metadata   Json?
-  createdAt  DateTime @default(now()) @map("created_at")
+  id        String   @id @default(uuid())
+  name      String // click, scroll, form_submit, etc.
+  category  String? // navigation, engagement, conversion
+  label     String? // button text, link href, etc.
+  value     Int? // numeric value if applicable
+  path      String?
+  ip        String?
+  sessionId String?  @map("session_id")
+  visitorId String?  @map("visitor_id")
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@index([name])
   @@index([category])
@@ -348,21 +379,21 @@ model AnalyticsEvent {
 }
 
 model VisitorSession {
-  id          String    @id @default(uuid())
-  visitorId   String    @map("visitor_id")
+  id          String   @id @default(uuid())
+  visitorId   String   @map("visitor_id")
   ip          String?
-  userAgent   String?   @map("user_agent")
+  userAgent   String?  @map("user_agent")
   country     String?
   city        String?
   device      String?
   browser     String?
   os          String?
-  landingPage String?   @map("landing_page")
+  landingPage String?  @map("landing_page")
   referrer    String?
-  pageViews   Int       @default(1) @map("page_views")
-  duration    Int       @default(0) // seconds
-  startedAt   DateTime  @default(now()) @map("started_at")
-  lastSeenAt  DateTime  @default(now()) @map("last_seen_at")
+  pageViews   Int      @default(1) @map("page_views")
+  duration    Int      @default(0) // seconds
+  startedAt   DateTime @default(now()) @map("started_at")
+  lastSeenAt  DateTime @default(now()) @map("last_seen_at")
 
   @@index([visitorId])
   @@index([ip])

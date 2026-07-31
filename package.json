@@ -6,8 +6,11 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
+    "preinstall": "node scripts/ensure-pnpm.cjs",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "dev": "nest start --watch",
+    "dev:prod": "node scripts/with-env.cjs .env.production.local -- nest start --watch",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
@@ -17,6 +20,8 @@
     "prisma:migrate": "node scripts/prisma.cjs migrate dev",
     "prisma:migrate:deploy": "node scripts/prisma.cjs migrate deploy",
     "docker:build": "docker build -t jt-cms-api .",
+    "deploy:dev": "node scripts/deploy-cloud-run.cjs --env=dev",
+    "deploy:prod": "node scripts/deploy-cloud-run.cjs --env=prod",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
@@ -24,6 +29,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@google-analytics/data": "^6.1.0",
     "@google-cloud/storage": "^7.21.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.4",
@@ -32,6 +38,7 @@
     "@nestjs/mapped-types": "^2.1.1",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/throttler": "^6.5.0",
     "@prisma/client": "^6.19.3",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
@@ -39,6 +46,7 @@
     "dotenv": "^17.4.2",
     "firebase-admin": "^14.2.0",
     "multer": "^2.2.0",
+    "nodemailer": "^9.0.3",
     "openai": "^6.49.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
@@ -57,6 +65,7 @@
     "@types/jest": "^30.0.0",
     "@types/multer": "^2.2.0",
     "@types/node": "^24.0.0",
+    "@types/nodemailer": "^8.0.1",
     "@types/passport-jwt": "^4.0.1",
     "@types/supertest": "^7.0.0",
     "@types/ua-parser-js": "^0.7.39",
@@ -108,5 +117,5 @@
       "unrs-resolver"
     ]
   },
-  "packageManager": "pnpm@10.14.0"
+  "packageManager": "pnpm@10.24.0"
 }

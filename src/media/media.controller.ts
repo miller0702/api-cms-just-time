@@ -116,10 +116,7 @@ export class MediaController {
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions('media.write')
   @Patch('admin/media/:id')
-  move(
-    @Param('id') id: string,
-    @Body() body: { folderId?: string | null },
-  ) {
+  move(@Param('id') id: string, @Body() body: { folderId?: string | null }) {
     return this.media.moveAsset(id, body.folderId ?? null);
   }
 
