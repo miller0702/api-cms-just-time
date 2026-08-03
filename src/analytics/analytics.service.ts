@@ -4,6 +4,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { TrackPageViewDto } from './dto/track-pageview.dto';
 import { TrackEventDto } from './dto/track-event.dto';
 import * as UAParser from 'ua-parser-js';
+import {
+  COLOMBIA_REGIONS,
+  countryCentroid,
+  countryName,
+  lookupIp,
+} from './geoip';
 
 @Injectable()
 export class AnalyticsService {
@@ -28,6 +34,7 @@ export class AnalyticsService {
     const device = parsed?.device?.type || 'desktop';
     const browser = parsed?.browser?.name || null;
     const os = parsed?.os?.name || null;
+    const geo = lookupIp(ip);
 
     // Registrar la vista
     const pageView = await this.prisma.pageView.create({
@@ -36,6 +43,8 @@ export class AnalyticsService {
         referrer: dto.referrer,
         userAgent,
         ip,
+        country: geo?.country ?? null,
+        city: geo?.city ?? null,
         device,
         browser,
         os,
@@ -53,6 +62,8 @@ export class AnalyticsService {
         userAgent,
         dto.path,
         dto.referrer,
+        geo?.country ?? null,
+        geo?.city ?? null,
       );
     }
 
@@ -94,6 +105,8 @@ export class AnalyticsService {
     userAgent: string | null,
     path: string,
     referrer?: string,
+    country?: string | null,
+    city?: string | null,
   ) {
     const parsed = userAgent
       ? new UAParser.UAParser(userAgent).getResult()
@@ -125,6 +138,7 @@ export class AnalyticsService {
         data: {
           pageViews: { increment: 1 },
           lastSeenAt: new Date(),
+          ...(country && !existingByIp.country ? { country, city } : {}),
         },
       });
     } else {
@@ -135,6 +149,8 @@ export class AnalyticsService {
           visitorId: visitorId || sessionId,
           ip,
           userAgent,
+          country: country ?? null,
+          city: city ?? null,
           device,
           browser,
           os: parsed?.os?.name,
@@ -168,7 +184,9 @@ export class AnalyticsService {
       browserStats,
       recentEvents,
       dailyViews,
+      heatmap,
       topIPs,
+      geo,
     ] = await Promise.all([
       this.prisma.pageView.count({
         where: { createdAt: { gte: since } },
@@ -217,6 +235,7 @@ export class AnalyticsService {
         },
       }),
       this.getDailyViews(safeDays, since),
+      this.getHeatmap(since),
       this.prisma.pageView.groupBy({
         by: ['ip'],
         where: { createdAt: { gte: since }, ip: { not: null } },
@@ -224,6 +243,7 @@ export class AnalyticsService {
         orderBy: { _count: { ip: 'desc' } },
         take: 20,
       }),
+      this.getGeo(since),
     ]);
 
     const data = {
@@ -268,6 +288,8 @@ export class AnalyticsService {
         }),
       ),
       dailyViews,
+      heatmap,
+      geo,
       recentEvents: recentEvents.map((e) => ({
         id: e.id,
         name: e.name,
@@ -325,6 +347,131 @@ export class AnalyticsService {
       result.push({ date: key, views: byDay.get(key) ?? 0 });
     }
     return result;
+  }
+
+  /**
+   * Agrega vistas por país y por departamento (Colombia) resolviendo IP → geo.
+   * Usa country guardado cuando existe; si no, GeoLite (cubre histórico sin country).
+   */
+  private async getGeo(since: Date) {
+    const rows = await this.prisma.$queryRaw<
+      Array<{
+        ip: string | null;
+        country: string | null;
+        views: number | bigint;
+      }>
+    >`
+      SELECT ip, country, COUNT(*)::int AS views
+      FROM cms.page_views
+      WHERE created_at >= ${since}
+        AND ip IS NOT NULL
+      GROUP BY ip, country
+    `;
+
+    const countries = new Map<string, number>();
+    const colombia = new Map<string, number>();
+    const colombiaCities = new Map<
+      string,
+      { region: string; city: string; views: number; lat: number; lon: number }
+    >();
+    let unresolved = 0;
+
+    for (const row of rows) {
+      const views = Number(row.views);
+      const geo = lookupIp(row.ip);
+      const code = (row.country || geo?.country || '').toUpperCase();
+      if (!code) {
+        unresolved += views;
+        continue;
+      }
+      countries.set(code, (countries.get(code) || 0) + views);
+      if (code === 'CO') {
+        const region = geo?.region || '_';
+        colombia.set(region, (colombia.get(region) || 0) + views);
+        const city = (geo?.city || '').trim();
+        if (city) {
+          const key = `${region}|${city.toLowerCase()}`;
+          const prev = colombiaCities.get(key);
+          if (prev) {
+            prev.views += views;
+          } else {
+            colombiaCities.set(key, {
+              region,
+              city,
+              views,
+              lat: geo?.lat ?? COLOMBIA_REGIONS[region]?.lat ?? 4.57,
+              lon: geo?.lon ?? COLOMBIA_REGIONS[region]?.lon ?? -74.3,
+            });
+          }
+        }
+      }
+    }
+
+    const countryList = [...countries.entries()]
+      .map(([code, views]) => {
+        const c = countryCentroid(code);
+        return {
+          code,
+          name: countryName(code),
+          views,
+          lat: c.lat,
+          lon: c.lon,
+        };
+      })
+      .sort((a, b) => b.views - a.views);
+
+    const colombiaList = [...colombia.entries()]
+      .map(([code, views]) => {
+        const meta = COLOMBIA_REGIONS[code];
+        return {
+          code,
+          name: meta?.name || (code === '_' ? 'Sin departamento' : code),
+          views,
+          lat: meta?.lat ?? 4.57,
+          lon: meta?.lon ?? -74.3,
+        };
+      })
+      .sort((a, b) => b.views - a.views);
+
+    const cityList = [...colombiaCities.values()].sort(
+      (a, b) => b.views - a.views,
+    );
+
+    return {
+      countries: countryList,
+      colombia: colombiaList,
+      colombiaCities: cityList,
+      unresolvedViews: unresolved,
+      maxCountryViews: countryList[0]?.views ?? 0,
+      maxColombiaViews: colombiaList[0]?.views ?? 0,
+    };
+  }
+
+  /**
+   * Mapa de calor: día de la semana × hora (zona America/Bogota).
+   * dow: 0=domingo … 6=sábado (EXTRACT DOW de Postgres).
+   */
+  private async getHeatmap(since: Date) {
+    const timezone = 'America/Bogota';
+    const rows = await this.prisma.$queryRaw<
+      Array<{ dow: number | bigint; hour: number | bigint; views: number | bigint }>
+    >`
+      SELECT EXTRACT(DOW FROM created_at AT TIME ZONE 'America/Bogota')::int AS dow,
+             EXTRACT(HOUR FROM created_at AT TIME ZONE 'America/Bogota')::int AS hour,
+             COUNT(*)::int AS views
+      FROM cms.page_views
+      WHERE created_at >= ${since}
+      GROUP BY 1, 2
+    `;
+
+    const cells = rows.map((r) => ({
+      dow: Number(r.dow),
+      hour: Number(r.hour),
+      views: Number(r.views),
+    }));
+    const max = cells.reduce((m, c) => Math.max(m, c.views), 0);
+
+    return { timezone, max, cells };
   }
 
   /**

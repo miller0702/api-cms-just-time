@@ -77,7 +77,7 @@ export class MediaController {
   list(
     @Query('folderId') folderId?: string,
     @Query('kind')
-    kind?: 'image' | 'video' | 'audio' | 'document' | 'all',
+    kind?: 'image' | 'video' | 'audio' | 'document' | 'font' | 'all',
   ) {
     const resolved =
       folderId === undefined
@@ -86,6 +86,29 @@ export class MediaController {
           ? null
           : folderId;
     return this.media.list(resolved, kind || 'all');
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('media.write')
+  @Post('admin/media/font-pack')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: useGcs
+        ? memoryStorage()
+        : diskStorage({
+            destination: join(process.cwd(), 'uploads'),
+            filename: (_req, file, cb) => {
+              cb(null, `${randomUUID()}${extname(file.originalname)}`);
+            },
+          }),
+      limits: { fileSize: 50 * 1024 * 1024 },
+    }),
+  )
+  importFontPack(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('folderId') folderId?: string,
+  ) {
+    return this.media.importFontPack(file, folderId || null);
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)

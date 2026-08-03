@@ -115,6 +115,38 @@ export class ObjectStorageService {
     return { url: this.publicUrl(objectKey), key: objectKey };
   }
 
+  /** Sube bytes (p. ej. fuentes extraídas de un ZIP) y devuelve URL pública. */
+  async uploadBuffer(
+    buffer: Buffer,
+    objectKey: string,
+    contentType: string,
+    localFilename: string,
+  ): Promise<{ url: string; key: string }> {
+    if (!this.isEnabled()) {
+      const { writeFileSync } = await import('fs');
+      const { join } = await import('path');
+      const dest = join(process.cwd(), 'uploads', localFilename);
+      writeFileSync(dest, buffer);
+      return { url: `/uploads/${localFilename}`, key: objectKey };
+    }
+
+    const bucket = this.getStorage().bucket(this.bucketName);
+    const blob = bucket.file(objectKey);
+    await blob.save(buffer, {
+      resumable: false,
+      contentType,
+      metadata: { cacheControl: 'public, max-age=31536000' },
+    });
+    try {
+      await blob.makePublic();
+    } catch (err) {
+      this.logger.warn(
+        `makePublic falló: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+    return { url: this.publicUrl(objectKey), key: objectKey };
+  }
+
   async deleteByUrl(url: string) {
     if (!url) return;
 

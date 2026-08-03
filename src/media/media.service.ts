@@ -3,11 +3,27 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { existsSync, mkdirSync } from 'fs';
-import { extname, join } from 'path';
+import { existsSync, mkdirSync, readFileSync } from 'fs';
+import { basename, extname, join } from 'path';
 import { randomUUID } from 'crypto';
+import AdmZip from 'adm-zip';
 import { PrismaService } from '../prisma/prisma.service';
 import { ObjectStorageService } from './object-storage.service';
+import {
+  FONT_MIME,
+  guessFamilyName,
+  selectBestFaces,
+} from './font-pack';
+
+export type FontFaceOut = {
+  id: string;
+  url: string;
+  filename: string;
+  weight: number;
+  style: 'normal' | 'italic';
+  mimeType: string;
+  variable?: boolean;
+};
 
 @Injectable()
 export class MediaService {
@@ -111,7 +127,7 @@ export class MediaService {
 
   list(
     folderId?: string | null,
-    kind?: 'image' | 'video' | 'audio' | 'document' | 'all',
+    kind?: 'image' | 'video' | 'audio' | 'document' | 'font' | 'all',
   ) {
     const where: {
       folderId?: string | null;
@@ -124,7 +140,20 @@ export class MediaService {
     if (kind === 'image') where.mimeType = { startsWith: 'image/' };
     else if (kind === 'video') where.mimeType = { startsWith: 'video/' };
     else if (kind === 'audio') where.mimeType = { startsWith: 'audio/' };
-    else if (kind === 'document') {
+    else if (kind === 'font') {
+      where.OR = [
+        { mimeType: { startsWith: 'font/' } },
+        { mimeType: { equals: 'application/font-woff' } },
+        { mimeType: { equals: 'application/font-woff2' } },
+        { mimeType: { equals: 'application/x-font-ttf' } },
+        { mimeType: { equals: 'application/x-font-otf' } },
+        { mimeType: { equals: 'application/octet-stream' } },
+        { filename: { endsWith: '.woff2' } },
+        { filename: { endsWith: '.woff' } },
+        { filename: { endsWith: '.ttf' } },
+        { filename: { endsWith: '.otf' } },
+      ];
+    } else if (kind === 'document') {
       where.OR = [
         { mimeType: { startsWith: 'application/' } },
         { mimeType: { startsWith: 'text/' } },
@@ -209,5 +238,113 @@ export class MediaService {
     await this.storage.deleteByUrl(item.url);
     await this.prisma.mediaAsset.delete({ where: { id } });
     return { ok: true };
+  }
+
+  /**
+   * ZIP de Google Fonts (u otro pack tipográfico):
+   * extrae woff2/woff/ttf/otf, los sube y devuelve caras con peso/estilo.
+   */
+  async importFontPack(
+    file?: Express.Multer.File,
+    folderId?: string | null,
+  ): Promise<{ familyHint: string; faces: FontFaceOut[]; count: number }> {
+    if (!file) throw new BadRequestException('ZIP requerido');
+    const name = (file.originalname || file.filename || '').toLowerCase();
+    if (!name.endsWith('.zip') && file.mimetype !== 'application/zip') {
+      throw new BadRequestException('Sube el ZIP descargado desde Google Fonts');
+    }
+    if (folderId) await this.folderById(folderId);
+
+    let buffer: Buffer;
+    if (file.buffer) buffer = file.buffer;
+    else if (file.path) buffer = readFileSync(file.path);
+    else throw new BadRequestException('Archivo ZIP inválido');
+
+    let zip: AdmZip;
+    try {
+      zip = new AdmZip(buffer);
+    } catch {
+      throw new BadRequestException('No se pudo leer el ZIP');
+    }
+
+    const entries = zip
+      .getEntries()
+      .filter((e) => !e.isDirectory)
+      .map((e) => ({
+        entryName: e.entryName,
+        buffer: e.getData(),
+      }));
+
+    const selected = selectBestFaces(entries);
+    if (selected.length === 0) {
+      throw new BadRequestException(
+        'No se encontraron fuentes (.woff2, .woff, .ttf, .otf) en el ZIP',
+      );
+    }
+    if (selected.length > 40) {
+      throw new BadRequestException('Demasiadas caras en el ZIP (máx. 40)');
+    }
+
+    const faces: FontFaceOut[] = [];
+    const rows: Array<{
+      id: string;
+      filename: string;
+      mimeType: string;
+      sizeBytes: number;
+      url: string;
+      alt: string | null;
+      folderId: string | null;
+    }> = [];
+
+    // Subidas en paralelo (límite 4) — la DB de Supabase suele ser el cuello de botella
+    const queue = [...selected];
+    const workers = Array.from({ length: Math.min(4, queue.length) }, async () => {
+      while (queue.length) {
+        const face = queue.shift();
+        if (!face) return;
+        const id = randomUUID();
+        const safeBase = face.basename.replace(/[^\w.\-[\],]+/g, '_');
+        const localName = `${id}${face.ext}`;
+        const objectKey = `cms/media/${id}${face.ext}`;
+        const mime = FONT_MIME[face.ext] || 'application/octet-stream';
+        const uploaded = await this.storage.uploadBuffer(
+          face.buffer,
+          objectKey,
+          mime,
+          localName,
+        );
+        rows.push({
+          id,
+          filename: safeBase,
+          mimeType: mime,
+          sizeBytes: face.buffer.length,
+          url: uploaded.url,
+          alt: `font ${face.weight} ${face.style}`,
+          folderId: folderId || null,
+        });
+        faces.push({
+          id,
+          url: uploaded.url,
+          filename: safeBase,
+          weight: face.weight,
+          style: face.style,
+          mimeType: mime,
+          variable: Boolean(face.variable),
+        });
+      }
+    });
+    await Promise.all(workers);
+
+    if (rows.length) {
+      await this.prisma.mediaAsset.createMany({ data: rows });
+    }
+
+    faces.sort((a, b) => a.weight - b.weight || a.style.localeCompare(b.style));
+
+    return {
+      familyHint: guessFamilyName(selected.map((s) => s.entryName)),
+      faces,
+      count: faces.length,
+    };
   }
 }
